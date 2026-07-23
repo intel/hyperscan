@@ -28,6 +28,10 @@
 
 #include "config.h"
 
+#include <stddef.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
 #include "gtest/gtest.h"
 #include "hs.h"
 #include "database.h"
@@ -57,36 +61,60 @@ int singleHandler(unsigned id, unsigned long long from,
 
 namespace /* anonymous */ {
 
+static void makeDatabaseWritable(hs_database *db) {
+    if (!db) {
+        return;
+    }
+    long ps_raw = sysconf(_SC_PAGESIZE);
+    if (ps_raw <= 0) {
+        return;
+    }
+    size_t ps = (size_t)ps_raw;
+    /* Verify page size is a power of two. */
+    if ((ps & (ps - 1)) != 0) {
+        return;
+    }
+    if ((uintptr_t)db & (ps - 1)) {
+        return;
+    }
+    size_t db_len = sizeof(struct hs_database) + db->length;
+    /* Guard against overflow in round-up arithmetic. */
+    if (db_len > SIZE_MAX - ps) {
+        return;
+    }
+    size_t rounded = (db_len + ps - 1) & ~(ps - 1);
+    if (rounded < db_len || rounded == 0) {
+        return;
+    }
+    int ret = mprotect(db, rounded, PROT_READ | PROT_WRITE);
+    (void)ret; /* intentionally ignore in test code */
+}
+
 // Break the magic number of the given database.
 void breakDatabaseMagic(hs_database *db) {
+    makeDatabaseWritable(db);
     // database magic should be 0xdbdb at the start
-    size_t db_len = sizeof(struct hs_database) + db->length;
-    hs_db_unprotect(db, db_len);
     ASSERT_TRUE(memcmp("\xdb\xdb", db, 2) == 0);
     *(char *)db = 0xdc;
 }
 
 // Break the version number of the given database.
 void breakDatabaseVersion(hs_database *db) {
+    makeDatabaseWritable(db);
     // database version is the second u32
-    size_t db_len = sizeof(struct hs_database) + db->length;
-    hs_db_unprotect(db, db_len);
     *((char *)db + 4) += 1;
 }
 
 // Break the platform data of the given database.
 void breakDatabasePlatform(hs_database *db) {
+    makeDatabaseWritable(db);
     // database platform is an aligned u64a 16 bytes in
-    size_t db_len = sizeof(struct hs_database) + db->length;
-    hs_db_unprotect(db, db_len);
     memset((char *)db + 16, 0xff, 8);
 }
 
 // Break the alignment of the bytecode for the given database.
 void breakDatabaseBytecode(hs_database *db) {
-    // bytecode ptr is a u32 at offsetof(hs_database, bytecode)
-    size_t db_len = sizeof(struct hs_database) + db->length;
-    hs_db_unprotect(db, db_len);
+    makeDatabaseWritable(db);
     unsigned int *bytecode = (unsigned int *)((char *)db + offsetof(struct hs_database, bytecode));
     ASSERT_NE(0U, *bytecode);
     ASSERT_EQ(0U, (size_t)((char *)db + *bytecode) % 16U);
@@ -925,7 +953,7 @@ TEST(HyperscanArgChecks, ScanBlockBrokenDatabaseMagic) {
     // teardown
     err = hs_free_scratch(scratch);
     ASSERT_EQ(HS_SUCCESS, err);
-    hs_db_free(db, db_len1);
+    hs_free_database(db);
 }
 
 // hs_scan: Call with a database with broken version
@@ -1131,7 +1159,7 @@ TEST(HyperscanArgChecks, ScanVectorBrokenDatabaseMagic) {
     // teardown
     err = hs_free_scratch(scratch);
     ASSERT_EQ(HS_SUCCESS, err);
-    hs_db_free(db, db_len2);
+    hs_free_database(db);
 }
 
 // hs_scan_vector: Call with a database with broken version
@@ -1408,7 +1436,7 @@ TEST(HyperscanArgChecks, AllocScratchBadDatabaseMagic) {
     ASSERT_EQ(HS_INVALID, err);
 
     // teardown
-    hs_db_free(db, db_len3);
+    hs_free_database(db);
 }
 
 // hs_alloc_scratch: Call with broken database version
@@ -1490,7 +1518,7 @@ TEST(HyperscanArgChecks, AllocScratchBadDatabaseCRC) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     // for want of a better case, corrupt the "middle byte" of the database.
-    hs_db_unprotect(db, len);
+    makeDatabaseWritable(db);
     char *mid = (char *)db + len/2;
     *mid += 17;
 
@@ -1575,14 +1603,14 @@ TEST(HyperscanArgChecks, StreamSizeBogusDatabase) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_LT(0U, len);
 
-    hs_db_unprotect(db, len);
+    makeDatabaseWritable(db);
     memset(db, 0xf0, len);
 
     size_t sz;
     err = hs_stream_size(db, &sz);
     ASSERT_EQ(HS_INVALID, err);
 
-    hs_db_free(db, len);
+    hs_free_database(db);
 }
 
 // hs_stream_size: Call with a block-mode database
