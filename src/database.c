@@ -45,6 +45,7 @@
 #include "hs_db_hmac_key.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/limex_internal.h"
+#include "nfa/mpv_internal.h"
 #include "nfa/tamarama_internal.h"
 #include "nfa/mcsheng_internal.h"
 #include "fdr/fdr.h"
@@ -813,6 +814,86 @@ hs_error_t db_validate_limex_repeats(const struct RoseEngine *rose,
     return HS_SUCCESS;
 }
 
+/**
+ * Validate MPV NFA offsets to prevent out-of-bounds access (CWE-787).
+ *
+ * Forged active_offset/reporter_offset can make queue init and runtime
+ * operations touch memory outside stream/scratch state.
+ */
+static
+hs_error_t db_validate_mpv_offsets(const struct RoseEngine *rose,
+                                   u32 rose_size) {
+    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose_size) {
+        return HS_SUCCESS; /* no NFA engines - nothing to check */
+    }
+
+    const char *rose_base = (const char *)rose;
+    const struct NfaInfo *infos =
+        (const struct NfaInfo *)(rose_base + rose->nfaInfoOffset);
+
+    for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        u64a info_end = (u64a)rose->nfaInfoOffset +
+                         ((u64a)qi + 1) * sizeof(struct NfaInfo);
+        if (unlikely(info_end > rose_size)) {
+            DEBUG_PRINTF("NfaInfo[%u] out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        const struct NfaInfo *ni = &infos[qi];
+        if (!ni->nfaOffset || ni->nfaOffset >= rose_size) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + sizeof(struct NFA) > rose_size)) {
+            DEBUG_PRINTF("NFA[%u] header out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        const struct NFA *nfa =
+            (const struct NFA *)(rose_base + ni->nfaOffset);
+
+        if (nfa->type != MPV_NFA) {
+            continue;
+        }
+
+        if (unlikely((u64a)ni->nfaOffset + (u64a)nfa->length > (u64a)rose_size)) {
+            DEBUG_PRINTF("MPV[%u] body out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        if (unlikely(nfa->length < sizeof(struct NFA) + sizeof(struct mpv))) {
+            DEBUG_PRINTF("MPV[%u] too small for mpv header\n", qi);
+            return HS_INVALID;
+        }
+
+        const struct mpv *m = (const struct mpv *)getImplNfa(nfa);
+
+        if (unlikely(m->kilo_count > MMB_MAX_BITS)) {
+            DEBUG_PRINTF("MPV[%u] kilo_count too large: %u\n", qi,
+                         m->kilo_count);
+            return HS_INVALID;
+        }
+
+        u32 mb_size = rt_mmbit_size(m->kilo_count);
+
+        if (unlikely(m->active_offset > nfa->streamStateSize ||
+                     mb_size > nfa->streamStateSize - m->active_offset)) {
+            DEBUG_PRINTF("MPV[%u] active mmbit OOB: off=%u size=%u stream=%u\n",
+                         qi, m->active_offset, mb_size, nfa->streamStateSize);
+            return HS_INVALID;
+        }
+
+        if (unlikely(m->reporter_offset > nfa->scratchStateSize ||
+                     mb_size > nfa->scratchStateSize - m->reporter_offset)) {
+            DEBUG_PRINTF("MPV[%u] reporter mmbit OOB: off=%u size=%u scratch=%u\n",
+                         qi, m->reporter_offset, mb_size,
+                         nfa->scratchStateSize);
+            return HS_INVALID;
+        }
+    }
+
+    return HS_SUCCESS;
+}
 static
 hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
     const struct RoseEngine *rose = hs_get_bytecode(db);
@@ -922,6 +1003,12 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
      /* Validate mcsheng successor table entries (CWE-125). */
     if (unlikely(db_validate_mcsheng_succ_table(rose, rose_size) != HS_SUCCESS)) {
         DEBUG_PRINTF("mcsheng successor table validation failed\n");
+        return HS_INVALID;
+    }
+
+    /* Validate MPV active/reporter offsets (CWE-787). */
+    if (unlikely(db_validate_mpv_offsets(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("MPV offset validation failed\n");
         return HS_INVALID;
     }
 
