@@ -29,8 +29,10 @@
 #include "config.h"
 
 #include <stddef.h>
+#ifndef _WIN32
 #include <sys/mman.h>
 #include <unistd.h>
+#endif
 
 #include "gtest/gtest.h"
 #include "hs.h"
@@ -61,6 +63,7 @@ int singleHandler(unsigned id, unsigned long long from,
 
 namespace /* anonymous */ {
 
+#ifndef _WIN32
 static void makeDatabaseWritable(hs_database *db) {
     if (!db) {
         return;
@@ -89,6 +92,15 @@ static void makeDatabaseWritable(hs_database *db) {
     int ret = mprotect(db, rounded, PROT_READ | PROT_WRITE);
     (void)ret; /* intentionally ignore in test code */
 }
+#else
+static void makeDatabaseWritable(hs_database *db) {
+    if (!db) {
+        return;
+    }
+    size_t db_len = sizeof(struct hs_database) + db->length;
+    hs_db_unprotect(db, db_len);
+}
+#endif
 
 // Break the magic number of the given database.
 void breakDatabaseMagic(hs_database *db) {
@@ -944,7 +956,6 @@ TEST(HyperscanArgChecks, ScanBlockBrokenDatabaseMagic) {
     ASSERT_TRUE(scratch != nullptr);
 
     // break the database here, after scratch alloc
-    size_t db_len1 = sizeof(struct hs_database) + db->length;
     breakDatabaseMagic(db);
 
     err = hs_scan(db, "data", 4, 0, scratch, dummy_cb, nullptr);
@@ -1148,7 +1159,6 @@ TEST(HyperscanArgChecks, ScanVectorBrokenDatabaseMagic) {
     ASSERT_TRUE(scratch != nullptr);
 
     // break the database here, after scratch alloc
-    size_t db_len2 = sizeof(struct hs_database) + db->length;
     breakDatabaseMagic(db);
 
     const char *data[] = {"data", "data"};
@@ -1428,7 +1438,6 @@ TEST(HyperscanArgChecks, AllocScratchBadDatabaseMagic) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
-    size_t db_len3 = sizeof(struct hs_database) + db->length;
     breakDatabaseMagic(db);
 
     hs_scratch_t *scratch = nullptr;
