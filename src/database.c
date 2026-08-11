@@ -821,7 +821,14 @@ hs_error_t dbIsValid(const hs_database_t *db) {
         const struct NfaInfo *infos =
             (const struct NfaInfo *)((const char *)rose + rose->nfaInfoOffset);
 
-        for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        /* Explicit bound check on queueCount to satisfy taint analysis. */
+        const u32 queue_count = rose->queueCount;
+        if (unlikely(queue_count > rose->size / sizeof(struct NfaInfo))) {
+            DEBUG_PRINTF("queueCount %u exceeds maximum\n", queue_count);
+            return HS_INVALID;
+        }
+
+        for (u32 qi = 0; qi < queue_count; qi++) {
             const struct NfaInfo *info = &infos[qi];
 
             if (unlikely(info->nfaOffset == 0 ||
