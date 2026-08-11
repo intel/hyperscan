@@ -43,7 +43,7 @@ void runAnchoredTableBlock(const struct RoseEngine *t, const void *atable,
                            struct hs_scratch *scratch) {
     const u8 *buffer = scratch->core_info.buf;
     size_t length = scratch->core_info.len;
-    size_t alen = MIN(length, t->anchoredDistance);
+    size_t alen = MIN(length, t->anchoredDistance);//alen是什么?
     const struct anchored_matcher_info *curr = atable;
 
     DEBUG_PRINTF("BEGIN ANCHORED (over %zu/%zu)\n", alen, length);

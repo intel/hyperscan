@@ -84,7 +84,9 @@ void validateExt(const hs_expr_ext &ext) {
                                                     HS_EXT_FLAG_MAX_OFFSET |
                                                     HS_EXT_FLAG_MIN_LENGTH |
                                                     HS_EXT_FLAG_EDIT_DISTANCE |
-                                                    HS_EXT_FLAG_HAMMING_DISTANCE;
+                                                    HS_EXT_FLAG_HAMMING_DISTANCE|
+                                                    HS_EXT_FLAG_MAX_DEPTH|
+                                                    HS_EXT_FLAG_COMBINATION_PRIORITY;
     if (ext.flags & ~ALL_EXT_FLAGS) {
         throw CompileError("Invalid hs_expr_ext flag set.");
     }
@@ -217,6 +219,10 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
         throw CompileError("HS_FLAG_QUIET is not supported in "
                            "combination with HS_FLAG_SOM_LEFTMOST.");
     }
+    if (flags & HS_EXT_FLAG_COMBINATION_PRIORITY){
+        throw CompileError("HS_EXT_FLAG_COMBINATION_PRIORITY is just supported in "
+                           "combination with HS_FLAG_COMBINATION.");
+    }
     flags &= ~HS_FLAG_QUIET;
     ParseMode mode(flags);
 
@@ -275,6 +281,12 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
         }
         if (ext->flags & HS_EXT_FLAG_HAMMING_DISTANCE) {
             expr.hamm_distance = ext->hamming_distance;
+        }
+        if (ext->flags & HS_EXT_FLAG_MAX_DEPTH) {
+            if (!(ext->flags & HS_EXT_FLAG_MAX_OFFSET) ||
+                ext->max_depth < expr.max_offset) {
+                expr.max_offset = ext->max_depth;
+            }
         }
     }
 
@@ -358,9 +370,13 @@ void addExpression(NG &ng, unsigned index, const char *expression,
             }
             if (ext) {
                 validateExt(*ext);
-                if (ext->flags & ~(HS_EXT_FLAG_MIN_OFFSET |
-                                   HS_EXT_FLAG_MAX_OFFSET)) {
-                    throw CompileError("only HS_EXT_FLAG_MIN_OFFSET and "
+                if (ext->flags &
+                    ~(HS_EXT_FLAG_MIN_OFFSET | HS_EXT_FLAG_MAX_OFFSET |
+                      HS_EXT_FLAG_MAX_DEPTH |
+                      HS_EXT_FLAG_COMBINATION_PRIORITY)) {
+                    throw CompileError("only HS_EXT_FLAG_MIN_OFFSET ,"
+                                        "HS_EXT_FLAG_MAX_DEPTH,"
+                                        "HS_EXT_FLAG_COMBINATION_PRIORITY and "
                                        "HS_EXT_FLAG_MAX_OFFSET extra flags "
                                        "are supported in combination "
                                        "with HS_FLAG_COMBINATION.");
@@ -371,9 +387,18 @@ void addExpression(NG &ng, unsigned index, const char *expression,
                 if (ext->flags & HS_EXT_FLAG_MAX_OFFSET) {
                     max_offset = ext->max_offset;
                 }
+                if (ext->flags & HS_EXT_FLAG_MAX_DEPTH) {
+                    if (!(ext->flags & HS_EXT_FLAG_MAX_OFFSET) ||
+                        ext->max_depth < max_offset) {
+                        max_offset = ext->max_depth;
+                    }
+                }
             }
             ng.rm.pl.parseLogicalCombination(id, expression, ekey, min_offset,
                                              max_offset);
+            if (ext && (ext->flags & HS_EXT_FLAG_COMBINATION_PRIORITY)) {
+                ng.rm.pl.addPriority(id, ext);
+            }
             DEBUG_PRINTF("parsed logical combination expression %u\n", id);
         }
         return;

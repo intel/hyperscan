@@ -45,7 +45,11 @@
 extern "C"
 {
 #endif
-
+typedef struct hs_combination_subid_priority{
+    unsigned int frontID;
+    unsigned int backID;
+    unsigned int distance;
+} hs_combination_subid_priority_t;
 /**
  * A type containing error details that is returned by the compile calls (@ref
  * hs_compile(), @ref hs_compile_multi() and @ref hs_compile_ext_multi()) on
@@ -265,6 +269,9 @@ typedef struct hs_expr_ext {
      * hs_expr_ext::flags field.
      */
     unsigned hamming_distance;
+    unsigned max_depth;
+    unsigned  combinationPriorityCount;
+    hs_combination_subid_priority_t **combinationPriority;
 } hs_expr_ext_t;
 
 /**
@@ -290,6 +297,11 @@ typedef struct hs_expr_ext {
 
 /** Flag indicating that the hs_expr_ext::hamming_distance field is used. */
 #define HS_EXT_FLAG_HAMMING_DISTANCE 16ULL
+
+/** Flag indicating that the hs_expr_ext::max_depth field is used. */
+#define HS_EXT_FLAG_MAX_DEPTH    32ULL
+
+#define HS_EXT_FLAG_COMBINATION_PRIORITY 64ULL
 
 /** @} */
 
