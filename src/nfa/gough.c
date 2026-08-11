@@ -117,9 +117,18 @@ char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
     DEBUG_PRINTF("reporting state = %hu, loc=%llu, eod %hhu\n",
                  (u16)(s & STATE_MASK), loc, eod);
 
+    const struct gough_info *gi = get_gough(m);
+    u32 num_som_slots = gi->stream_som_loc_count;
+
     if (!eod && s == *cached_accept_state) {
-        u64a from = *cached_accept_som == INVALID_SLOT ? loc
-                                               : som->slots[*cached_accept_som];
+        u64a from;
+        if (*cached_accept_som == INVALID_SLOT) {
+            from = loc;
+        } else if (unlikely(*cached_accept_som >= num_som_slots)) {
+            return MO_CONTINUE_MATCHING;
+        } else {
+            from = som->slots[*cached_accept_som];
+        }
         if (cb(from, loc, *cached_accept_id, ctxt) == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING; /* termination requested */
         }
@@ -143,8 +152,14 @@ char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
         *cached_accept_id = rl->report[0].r;
         *cached_accept_som = rl->report[0].som;
 
-        u64a from = *cached_accept_som == INVALID_SLOT ? loc
-                                               : som->slots[*cached_accept_som];
+        u64a from;
+        if (*cached_accept_som == INVALID_SLOT) {
+            from = loc;
+        } else if (unlikely(*cached_accept_som >= num_som_slots)) {
+            return MO_CONTINUE_MATCHING;
+        } else {
+            from = som->slots[*cached_accept_som];
+        }
         DEBUG_PRINTF("reporting %u, using som[%u]=%llu\n", rl->report[0].r,
                      *cached_accept_som, from);
         if (cb(from, loc, *cached_accept_id, ctxt) == MO_HALT_MATCHING) {
@@ -156,7 +171,14 @@ char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
 
     for (u32 i = 0; i < count; i++) {
         u32 slot = rl->report[i].som;
-        u64a from = slot == INVALID_SLOT ? loc : som->slots[slot];
+        u64a from;
+        if (slot == INVALID_SLOT) {
+            from = loc;
+        } else if (unlikely(slot >= num_som_slots)) {
+            continue;
+        } else {
+            from = som->slots[slot];
+        }
         DEBUG_PRINTF("reporting %u, using som[%u] = %llu\n",
                      rl->report[i].r, slot, from);
         if (cb(from, loc, rl->report[i].r, ctxt) == MO_HALT_MATCHING) {
@@ -190,30 +212,41 @@ void run_prog_i(UNUSED const struct NFA *nfa,
                 const struct gough_ins *pc, u64a som_offset,
                 struct gough_som_info *som) {
     DEBUG_PRINTF("run prog at som_offset of %llu\n", som_offset);
+    u32 num_slots = nfa->scratchStateSize > 16
+                  ? (nfa->scratchStateSize - 16) / sizeof(u64a)
+                  : 0;
     while (1) {
         assert((const u8 *)pc >= (const u8 *)nfa);
         assert((const u8 *)pc < (const u8 *)nfa + nfa->length);
         u32 dest = pc->dest;
         u32 src = pc->src;
-        assert(pc->op == GOUGH_INS_END
-               || dest < (nfa->scratchStateSize - 16) / 8);
+        assert(pc->op == GOUGH_INS_END || dest < num_slots);
         DEBUG_PRINTF("%s %u %u\n", dump_op(pc->op), dest, src);
         switch (pc->op) {
         case GOUGH_INS_END:
             return;
         case GOUGH_INS_MOV:
+            if (unlikely(dest >= num_slots || src >= num_slots)) {
+                return;
+            }
             som->slots[dest] = som->slots[src];
             break;
         case GOUGH_INS_NEW:
             /* note: c has already been advanced */
             DEBUG_PRINTF("current offset %llu; adjust %u\n", som_offset,
                          pc->src);
+            if (unlikely(dest >= num_slots)) {
+                return;
+            }
             assert(som_offset >= pc->src);
             som->slots[dest] = som_offset - pc->src;
             break;
         case GOUGH_INS_MIN:
             /* TODO: shift all values along by one so that a normal min works
              */
+            if (unlikely(dest >= num_slots || src >= num_slots)) {
+                return;
+            }
             if (som->slots[src] == GOUGH_SOM_EARLY) {
                 som->slots[dest] = som->slots[src];
             } else if (som->slots[dest] != GOUGH_SOM_EARLY) {
