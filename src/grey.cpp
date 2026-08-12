@@ -27,6 +27,7 @@
  */
 
 #include "grey.h"
+#include "hs_common.h"
 #include "ue2common.h"
 #include "util/compile_error.h"
 
@@ -145,7 +146,7 @@ Grey::Grey(void) :
                    allowTamarama(true), // Tamarama engine
                    tamaChunkSize(100),
                    dumpFlags(0),
-                   limitPatternCount(8000000), // 8M patterns
+                   limitPatternCount(HS_MAX_PATTERN_COUNT), // 1M patterns
                    limitPatternLength(16000),  // 16K bytes
                    limitGraphVertices(500000), // 500K vertices
                    limitGraphEdges(1000000), // 1M edges

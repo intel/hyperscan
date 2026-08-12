@@ -71,6 +71,21 @@ static void compute_db_hmac(hs_database_t *db) {
 }
 
 /**
+ * Helper: compute HMAC-SHA256 over the header fields (magic, version, length,
+ * platform) — mirrors db_check_header_integrity().
+ */
+static void compute_db_hmac_hdr(hs_database_t *db) {
+    unsigned char buf[20];
+    memcpy(buf, &db->magic, 4);
+    memcpy(buf + 4, &db->version, 4);
+    memcpy(buf + 8, &db->length, 4);
+    memcpy(buf + 12, &db->platform, 8);
+    unsigned int hmac_len = 32;
+    HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
+         buf, sizeof(buf), db->hmac_hdr, &hmac_len);
+}
+
+/**
  * Helper: allocate and initialize a minimal forged hs_database_t with a
  * RoseEngine that has the specified somLocationCount. All other fields are
  * set to minimal valid values that pass validate_queue_fatbits().
@@ -132,6 +147,7 @@ static hs_database_t *make_forged_db(u32 som_location_count,
 
     // Compute valid HMAC so the database passes integrity checks
     compute_db_hmac(db);
+    compute_db_hmac_hdr(db);
 
     return db;
 }
@@ -154,7 +170,7 @@ static void free_forged_db(hs_database_t *db) {
 //   This would allocate only 8 bytes for som_store but the runtime writes
 //   based on somLocationCount = 0x20000001 entries.
 // ============================================================================
-TEST(PsirtSomOverflow, AllocScratchRejectsOverflowingSomCount) {
+TEST(SomOverflow, AllocScratchRejectsOverflowingSomCount) {
     hs_database_t *db = make_forged_db(0x20000001u);
     ASSERT_NE(nullptr, db) << "Failed to allocate forged database";
 
@@ -184,7 +200,7 @@ TEST(PsirtSomOverflow, AllocScratchRejectsOverflowingSomCount) {
 //   0x1FFFFFFF * 8 = 0xFFFFFFF8 (fits u32)
 //   0x20000000 * 8 = 0x100000000 (overflows u32 → 0)
 // ============================================================================
-TEST(PsirtSomOverflow, AllocScratchRejectsBoundarySomCount) {
+TEST(SomOverflow, AllocScratchRejectsBoundarySomCount) {
     // 0x20000000 * 8 = 0x100000000 → truncates to 0
     hs_database_t *db = make_forged_db(0x20000000u);
     ASSERT_NE(nullptr, db) << "Failed to allocate forged database";
@@ -208,7 +224,7 @@ TEST(PsirtSomOverflow, AllocScratchRejectsBoundarySomCount) {
 // Test 3: Smaller overflow value (somLocationCount = 0x80000001)
 //   0x80000001 * 8 = 0x400000008 → truncates to 8
 // ============================================================================
-TEST(PsirtSomOverflow, AllocScratchRejectsLargeOverflowSomCount) {
+TEST(SomOverflow, AllocScratchRejectsLargeOverflowSomCount) {
     hs_database_t *db = make_forged_db(0x80000001u);
     ASSERT_NE(nullptr, db) << "Failed to allocate forged database";
 
@@ -232,7 +248,7 @@ TEST(PsirtSomOverflow, AllocScratchRejectsLargeOverflowSomCount) {
 // somLocationCount = 1 is the common case for a simple SOM pattern.
 // This is a false-positive control — must pass without error.
 // ============================================================================
-TEST(PsirtSomOverflow, AllocScratchAcceptsSmallSomCount) {
+TEST(SomOverflow, AllocScratchAcceptsSmallSomCount) {
     hs_database_t *db = make_forged_db(1u);
     ASSERT_NE(nullptr, db) << "Failed to allocate forged database";
 
@@ -253,7 +269,7 @@ TEST(PsirtSomOverflow, AllocScratchAcceptsSmallSomCount) {
 // 0x1FFFFFFF * 8 = 0xFFFFFFF8 — fits in u32 (no overflow).
 // Note: allocation may fail due to size, but that's HS_NOMEM, not HS_INVALID.
 // ============================================================================
-TEST(PsirtSomOverflow, AllocScratchAcceptsMaxNonOverflowSomCount) {
+TEST(SomOverflow, AllocScratchAcceptsMaxNonOverflowSomCount) {
     // 0x1FFFFFFF * 8 = 0xFFFFFFF8, fits u32 but is ~4GB of storage.
     // hs_alloc_scratch may return HS_NOMEM for this size, which is acceptable.
     // It must NOT silently truncate and return HS_SUCCESS with undersized
@@ -287,7 +303,7 @@ TEST(PsirtSomOverflow, AllocScratchAcceptsMaxNonOverflowSomCount) {
 // Compiles a real SOM pattern, serializes it, forges somLocationCount in the
 // serialized blob, recomputes HMAC, deserializes, and calls hs_alloc_scratch.
 // ============================================================================
-TEST(PsirtSomOverflow, SerializeForgeDeserializeRejectsOverflow) {
+TEST(SomOverflow, SerializeForgeDeserializeRejectsOverflow) {
     // Step 1: Compile a real SOM pattern
     hs_database_t *real_db = nullptr;
     hs_compile_error_t *compile_err = nullptr;
@@ -409,7 +425,7 @@ TEST(PsirtSomOverflow, SerializeForgeDeserializeRejectsOverflow) {
 // This is the baseline false-positive control — compile, serialize,
 // deserialize, alloc scratch, and scan must all succeed.
 // ============================================================================
-TEST(PsirtSomOverflow, BaselineSomDatabaseWorksCorrectly) {
+TEST(SomOverflow, BaselineSomDatabaseWorksCorrectly) {
     // Compile a real SOM pattern
     hs_database_t *db = nullptr;
     hs_compile_error_t *compile_err = nullptr;
@@ -451,7 +467,7 @@ TEST(PsirtSomOverflow, BaselineSomDatabaseWorksCorrectly) {
 // ============================================================================
 // Test 8: somLocationCount = 0 (no SOM) — must work fine (no overflow possible)
 // ============================================================================
-TEST(PsirtSomOverflow, ZeroSomCountAccepted) {
+TEST(SomOverflow, ZeroSomCountAccepted) {
     hs_database_t *db = make_forged_db(0u);
     ASSERT_NE(nullptr, db) << "Failed to allocate forged database";
 

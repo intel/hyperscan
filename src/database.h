@@ -43,6 +43,8 @@ extern "C"
 #include "ue2common.h"
 #include "util/arch.h"
 
+struct RoseEngine; /* forward declaration for validateStateLayout */
+
 #define HS_DB_VERSION HS_VERSION_32BIT
 
 /**
@@ -157,6 +159,13 @@ void hs_db_protect(void *ptr, size_t size);
 
 /** Restore database memory to read-write before freeing. */
 void hs_db_unprotect(void *ptr, size_t size);
+
+/**
+ * Validate the RoseStateOffsets layout against field counts.
+ * Ensures every state region fits within stateOffsets.end and that sizes
+ * are consistent with their counts. Covers block, stream, and vectored.
+ */
+hs_error_t validateStateLayout(const struct RoseEngine *rose);
 
 #ifdef __cplusplus
 } /* extern "C" */

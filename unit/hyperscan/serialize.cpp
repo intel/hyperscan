@@ -695,9 +695,11 @@ TEST(Serialize, HmacFieldCorruption) {
     free(bytes);
 }
 
-// --- PSIRT regression tests ---
+// --- Security regression tests ---
 
-static const size_t SERIAL_BYTECODE_OFF = 4 + 4 + 4 + 8 + 32;
+// Bytecode in the serialized blob starts at this offset.
+// Format: magic(4) + version(4) + length(4) + platform(8) + hmac(32) + hmac_hdr(32) = 84
+static const size_t SERIAL_BYTECODE_OFF = 4 + 4 + 4 + 8 + 32 + 32; // 84
 
 static void recomputeHMAC(char *bytes, size_t length) {
     const u32 bc_len = *(const u32 *)(bytes + 8);
@@ -730,7 +732,7 @@ static u32 readBytecodeU32(const char *bytes, size_t bc_offset) {
     return v;
 }
 
-TEST(Serialize, PsirtAnchoredFatbitOverflow) {
+TEST(Serialize, AnchoredFatbitOverflow) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
@@ -756,7 +758,7 @@ TEST(Serialize, PsirtAnchoredFatbitOverflow) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtNullDerefWalkStrawToCyclicRev) {
+TEST(Serialize, NullDerefWalkStrawToCyclicRev) {
     static const char *patterns[] = {
         "(?:ab|cd){2,4}[a-z]{1,3}xyz",
         "([a-z]){3,5}[0-9]foo",
@@ -781,7 +783,7 @@ TEST(Serialize, PsirtNullDerefWalkStrawToCyclicRev) {
     }
 }
 
-TEST(Serialize, PsirtLimExRepeatMetadataForge) {
+TEST(Serialize, LimExRepeatMetadataForge) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDBPat("a{5,10}b", 0,
@@ -805,7 +807,7 @@ TEST(Serialize, PsirtLimExRepeatMetadataForge) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtRepeatRangeResumeState) {
+TEST(Serialize, RepeatRangeResumeState) {
     hs_database_t *db = nullptr;
     hs_compile_error_t *comp_error = nullptr;
     hs_error_t err = hs_compile("a{3,7}b", 0, HS_MODE_STREAM,
@@ -837,7 +839,7 @@ TEST(Serialize, PsirtRepeatRangeResumeState) {
     hs_free_database(db);
 }
 
-TEST(Serialize, PsirtCompileLitMultiNullExpr) {
+TEST(Serialize, CompileLitMultiNullExpr) {
     const char *exprs[] = { nullptr };
     const unsigned flags[] = { 0 };
     const unsigned ids[] = { 1 };
@@ -854,7 +856,7 @@ TEST(Serialize, PsirtCompileLitMultiNullExpr) {
     hs_free_compile_error(comp_error);
 }
 
-TEST(Serialize, PsirtCompileLitMultiZeroLen) {
+TEST(Serialize, CompileLitMultiZeroLen) {
     const char *exprs[] = { "test" };
     const unsigned flags[] = { 0 };
     const unsigned ids[] = { 1 };
@@ -871,7 +873,7 @@ TEST(Serialize, PsirtCompileLitMultiZeroLen) {
     hs_free_compile_error(comp_error);
 }
 
-TEST(Serialize, PsirtCompileLitMultiOversizedLen) {
+TEST(Serialize, CompileLitMultiOversizedLen) {
     const char *exprs[] = { "test" };
     const unsigned flags[] = { 0 };
     const unsigned ids[] = { 1 };
@@ -888,7 +890,7 @@ TEST(Serialize, PsirtCompileLitMultiOversizedLen) {
     hs_free_compile_error(comp_error);
 }
 
-TEST(Serialize, PsirtCompileLitMultiNullLens) {
+TEST(Serialize, CompileLitMultiNullLens) {
     const char *exprs[] = { "test" };
     const unsigned flags[] = { 0 };
     const unsigned ids[] = { 1 };
@@ -904,7 +906,7 @@ TEST(Serialize, PsirtCompileLitMultiNullLens) {
     hs_free_compile_error(comp_error);
 }
 
-TEST(Serialize, PsirtCompileLitMultiNullExprs) {
+TEST(Serialize, CompileLitMultiNullExprs) {
     const unsigned flags[] = { 0 };
     const unsigned ids[] = { 1 };
     const size_t lens[] = { 4 };
@@ -920,7 +922,7 @@ TEST(Serialize, PsirtCompileLitMultiNullExprs) {
     hs_free_compile_error(comp_error);
 }
 
-TEST(Serialize, PsirtRoseOffsetFmatcherOOB) {
+TEST(Serialize, RoseOffsetFmatcherOOB) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
@@ -942,7 +944,7 @@ TEST(Serialize, PsirtRoseOffsetFmatcherOOB) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtRoseOffsetSmallWriteOOB) {
+TEST(Serialize, RoseOffsetSmallWriteOOB) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
@@ -964,7 +966,7 @@ TEST(Serialize, PsirtRoseOffsetSmallWriteOOB) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtRoseOffsetReportProgramOOB) {
+TEST(Serialize, RoseOffsetReportProgramOOB) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
@@ -986,7 +988,7 @@ TEST(Serialize, PsirtRoseOffsetReportProgramOOB) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtRoseSizeTooSmall) {
+TEST(Serialize, RoseSizeTooSmall) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
@@ -1004,7 +1006,7 @@ TEST(Serialize, PsirtRoseSizeTooSmall) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtDeserializeOverflow) {
+TEST(Serialize, DeserializeOverflow) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
@@ -1030,7 +1032,7 @@ TEST(Serialize, PsirtDeserializeOverflow) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtDeserializeMaxSize) {
+TEST(Serialize, DeserializeMaxSize) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
@@ -1048,7 +1050,7 @@ TEST(Serialize, PsirtDeserializeMaxSize) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtValidDbRoundTrip) {
+TEST(Serialize, ValidDbRoundTrip) {
     hs_database_t *db = buildDB("hatstand.*teakettle", 0, 1000,
                                 HS_MODE_BLOCK);
     ASSERT_NE(nullptr, db);
@@ -1062,7 +1064,7 @@ TEST(Serialize, PsirtValidDbRoundTrip) {
 
     err = hs_deserialize_database(bytes, length, &db);
     ASSERT_EQ(HS_SUCCESS, err)
-        << "valid database was rejected after PSIRT validation";
+        << "valid database was rejected after security validation";
     ASSERT_NE(nullptr, db);
 
     hs_scratch_t *scratch = nullptr;
@@ -1081,7 +1083,7 @@ TEST(Serialize, PsirtValidDbRoundTrip) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtValidStreamRoundTrip) {
+TEST(Serialize, ValidStreamRoundTrip) {
     hs_database_t *db = buildDB("a{3,7}b", 0, 1000, HS_MODE_STREAM);
     ASSERT_NE(nullptr, db);
 
@@ -1119,7 +1121,7 @@ TEST(Serialize, PsirtValidStreamRoundTrip) {
     free(bytes);
 }
 
-TEST(Serialize, PsirtCompileLitMultiValid) {
+TEST(Serialize, CompileLitMultiValid) {
     const char *exprs[] = { "foobar", "bazqux" };
     const unsigned flags[] = { 0, 0 };
     const unsigned ids[] = { 1, 2 };
@@ -1146,6 +1148,281 @@ TEST(Serialize, PsirtCompileLitMultiValid) {
 
     hs_free_scratch(scratch);
     hs_free_database(db);
+}
+
+// --------------------------------------------------------------------------
+// CWE-125: outfixBeginQueue/outfixEndQueue not validated
+//
+// A crafted serialized database with outfixBeginQueue/outfixEndQueue set
+// beyond queueCount is not caught by db_validate_rose_offsets(). When
+// hs_open_stream() calls init_outfixes() (src/rose/init.c), it loops
+// getNfaInfoByQueue(t, qi) with qi beyond the valid range, causing an
+// out-of-bounds read (or NULL deref from the bounds check in getNfaInfoByQueue).
+// The fix should add validation of outfixBeginQueue/outfixEndQueue against
+// queueCount in db_validate_rose_offsets().
+// --------------------------------------------------------------------------
+/* coverity[rule_of_five_violation] */
+TEST(Serialize, OutfixQueueOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    // Use a streaming pattern to get a valid stream-mode DB.
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_STREAM,
+                        &bytes, &length);
+
+    u32 queueCount = readBytecodeU32(bytes,
+                                     offsetof(struct RoseEngine, queueCount));
+
+    // Forge outfixBeginQueue to a value beyond queueCount.
+    u32 forged_begin = queueCount + 10;
+    u32 forged_end = forged_begin + 1;
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, outfixBeginQueue),
+                     forged_begin);
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, outfixEndQueue),
+                     forged_end);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged outfixBeginQueue/outfixEndQueue was not rejected "
+           "(outfixBeginQueue=" << forged_begin
+        << " > queueCount=" << queueCount << ")";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+// --------------------------------------------------------------------------
+// CWE-125: logicalTreeOffset not validated
+//
+// A crafted serialized database with logicalTreeOffset pointing past
+// rose->size is not caught by db_validate_rose_offsets(). When hs_scan()
+// triggers isLogicalCombination() (src/report.h), it dereferences
+// rose + logicalTreeOffset, causing a heap-buffer-overflow read.
+// The fix should add VALIDATE_OFFSET(logicalTreeOffset) in
+// db_validate_rose_offsets().
+// --------------------------------------------------------------------------
+/* coverity[rule_of_five_violation] */
+TEST(Serialize, LogicalTreeOffsetOOB) {
+    // Need a pattern with HS_FLAG_COMBINATION to produce non-zero
+    // logicalTreeOffset.
+    const char *exprs[] = {"abc", "def", "ghi",
+                           "(101 & 102) | 103"};
+    unsigned flags[] = {0, 0, 0, HS_FLAG_COMBINATION};
+    unsigned ids[] = {101, 102, 103, 1001};
+
+    hs_database_t *compile_db = nullptr;
+    hs_compile_error_t *comp_error = nullptr;
+    hs_error_t err = hs_compile_multi(exprs, flags, ids, 4,
+                                      HS_MODE_NOSTREAM, nullptr,
+                                      &compile_db, &comp_error);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_NE(nullptr, compile_db);
+
+    char *bytes = nullptr;
+    size_t length = 0;
+    err = hs_serialize_database(compile_db, &bytes, &length);
+    ASSERT_EQ(HS_SUCCESS, err);
+    hs_free_database(compile_db);
+
+    u32 rose_size = readBytecodeU32(bytes,
+                                    offsetof(struct RoseEngine, size));
+    u32 orig_lto = readBytecodeU32(bytes,
+                                   offsetof(struct RoseEngine, logicalTreeOffset));
+    ASSERT_NE(0u, orig_lto)
+        << "logicalTreeOffset is 0; pattern did not produce logical ops";
+
+    // Forge logicalTreeOffset past rose->size.
+    u32 forged_lto = rose_size + 4096;
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, logicalTreeOffset),
+                     forged_lto);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged logicalTreeOffset was not rejected "
+           "(logicalTreeOffset=" << forged_lto
+        << " > rose_size=" << rose_size << ")";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+// --------------------------------------------------------------------------
+// CWE-125: invDkeyOffset not validated
+//
+// invDkeyOffset is used in som_runtime.c to compute a pointer into the rose
+// bytecode: (const u32 *)((const char *)rose + rose->invDkeyOffset).
+// A forged value pointing past rose->size causes an OOB read.
+// --------------------------------------------------------------------------
+/* coverity[rule_of_five_violation] */
+TEST(Serialize, InvDkeyOffsetOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    u32 rose_size = readBytecodeU32(bytes,
+                                    offsetof(struct RoseEngine, size));
+
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, invDkeyOffset),
+                     rose_size + 4096);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged invDkeyOffset was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+// --------------------------------------------------------------------------
+// CWE-125: initMpvNfa queue index not validated
+//
+// initMpvNfa is used as a queue index in init_outfixes() (src/rose/init.c):
+//   getNfaInfoByQueue(t, t->initMpvNfa)
+// A forged value >= queueCount causes an OOB NfaInfo array access.
+// --------------------------------------------------------------------------
+/* coverity[rule_of_five_violation] */
+TEST(Serialize, InitMpvNfaOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_STREAM,
+                        &bytes, &length);
+
+    u32 queueCount = readBytecodeU32(bytes,
+                                     offsetof(struct RoseEngine, queueCount));
+
+    // Forge initMpvNfa to a valid (non-MO_INVALID_IDX) value beyond queueCount
+    u32 forged = queueCount + 100;
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, initMpvNfa), forged);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged initMpvNfa was not rejected "
+           "(initMpvNfa=" << forged << " >= queueCount=" << queueCount << ")";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+// --------------------------------------------------------------------------
+// CWE-125: leftfixBeginQueue not validated
+//
+// leftfixBeginQueue is used in stream.c and stream_compress_impl.h to
+// compute queue indices: qi = ri + rose->leftfixBeginQueue. A forged
+// value beyond queueCount causes OOB queue/NfaInfo access.
+// --------------------------------------------------------------------------
+/* coverity[rule_of_five_violation] */
+TEST(Serialize, LeftfixBeginQueueOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_STREAM,
+                        &bytes, &length);
+
+    u32 queueCount = readBytecodeU32(bytes,
+                                     offsetof(struct RoseEngine, queueCount));
+
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, leftfixBeginQueue),
+                     queueCount + 100);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged leftfixBeginQueue was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+// --------------------------------------------------------------------------
+// CWE-125: boundary report offsets not validated
+//
+// boundary.reportZeroOffset, boundary.reportZeroEodOffset, and
+// boundary.reportEodOffset are used as program offsets passed to
+// roseRunBoundaryProgram() (src/runtime.c), which interprets them as
+// instruction addresses within the rose bytecode. Forged values cause
+// OOB reads similar to other program offset fields that ARE validated.
+// --------------------------------------------------------------------------
+/* coverity[rule_of_five_violation] */
+TEST(Serialize, BoundaryReportZeroOffsetOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    u32 rose_size = readBytecodeU32(bytes,
+                                    offsetof(struct RoseEngine, size));
+
+    forgeBytecodeU32(bytes,
+                     offsetof(struct RoseEngine, boundary) +
+                     offsetof(struct RoseBoundaryReports, reportZeroOffset),
+                     rose_size + 4096);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged boundary.reportZeroOffset was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+/* coverity[rule_of_five_violation] */
+TEST(Serialize, BoundaryReportEodOffsetOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    u32 rose_size = readBytecodeU32(bytes,
+                                    offsetof(struct RoseEngine, size));
+
+    forgeBytecodeU32(bytes,
+                     offsetof(struct RoseEngine, boundary) +
+                     offsetof(struct RoseBoundaryReports, reportEodOffset),
+                     rose_size + 4096);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged boundary.reportEodOffset was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+/* coverity[rule_of_five_violation] */
+TEST(Serialize, BoundaryReportZeroEodOffsetOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    u32 rose_size = readBytecodeU32(bytes,
+                                    offsetof(struct RoseEngine, size));
+
+    forgeBytecodeU32(bytes,
+                     offsetof(struct RoseEngine, boundary) +
+                     offsetof(struct RoseBoundaryReports, reportZeroEodOffset),
+                     rose_size + 4096);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged boundary.reportZeroEodOffset was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
 }
 
 }

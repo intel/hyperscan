@@ -67,6 +67,9 @@ set(unit_hyperscan_SOURCES
     hyperscan/test_util.h
     hyperscan/leftfix_oob.cpp
     hyperscan/som_overflow.cpp
+    hyperscan/lbr_repeat_oob.cpp
+    hyperscan/noodle_key_oob.cpp
+    hyperscan/logical_combination_dos.cpp
     )
 add_executable(unit-hyperscan ${unit_hyperscan_SOURCES})
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)

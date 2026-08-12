@@ -94,7 +94,8 @@ hs_error_t validate_queue_fatbits(const struct RoseEngine *rose) {
         return HS_INVALID;
     }
 
-    if (unlikely(rose->anchored_fatbit_size <
+    if (rose->anchored_count &&
+        unlikely(rose->anchored_fatbit_size <
                  rt_fatbit_size(rose->anchored_count))) {
         DEBUG_PRINTF("anchored_fatbit_size too small for anchored_count: "
                      "%u < %u (count=%u)\n",
@@ -104,7 +105,8 @@ hs_error_t validate_queue_fatbits(const struct RoseEngine *rose) {
         return HS_INVALID;
     }
 
-    if (unlikely(rose->dkeyLogSize < rt_fatbit_size(rose->dkeyCount))) {
+    if (rose->dkeyCount &&
+        unlikely(rose->dkeyLogSize < rt_fatbit_size(rose->dkeyCount))) {
         DEBUG_PRINTF("dkeyLogSize too small for dkeyCount: "
                      "%u < %u (count=%u)\n",
                      rose->dkeyLogSize,
@@ -164,6 +166,22 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
         return HS_INVALID;
     }
 
+    /* Reject deduperCount values that would cause
+     * integer overflow in scratch sizing (2 * sizeof(u64a) * deduperCount)
+     * and ensure deduperLogSize is consistent with deduperCount. */
+    if (unlikely(deduperCount > UINT32_MAX / (2 * sizeof(u64a)))) {
+        *scratch = NULL;
+        return HS_INVALID;
+    }
+    if (unlikely(deduperLogSize > UINT32_MAX / 2)) {
+        *scratch = NULL;
+        return HS_INVALID;
+    }
+    if (deduperCount > 0 &&
+        unlikely(deduperLogSize < rt_fatbit_size(deduperCount))) {
+        *scratch = NULL;
+        return HS_INVALID;
+    }
     u32 som_store_size = proto->som_store_count * sizeof(u64a);
     u32 som_attempted_store_size = proto->som_store_count * sizeof(u64a);
     u32 som_now_size = proto->som_fatbit_size;

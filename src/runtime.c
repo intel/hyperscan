@@ -117,85 +117,6 @@ char validScratch(const struct RoseEngine *t, const struct hs_scratch *s) {
 }
 
 static really_inline
-char stateRegionInRange(u32 offset, u32 size, u32 end) {
-    return offset <= end && size <= end - offset;
-}
-
-/*
- * Validate block-state vectors before scan-time use so forged databases
- * cannot place these regions beyond stateOffsets.end.
- */
-static really_inline
-char validBlockStateLayoutForScan(const struct RoseEngine *rose) {
-    const struct RoseStateOffsets *so = &rose->stateOffsets;
-    const u32 end = so->end;
-
-    if (unlikely(rose->ekeyCount > MMB_MAX_BITS)) {
-        DEBUG_PRINTF("bad ekey count\n");
-        return 0;
-    }
-    if (unlikely(rose->lkeyCount > MMB_MAX_BITS ||
-                 rose->lopCount > MMB_MAX_BITS - rose->lkeyCount)) {
-        DEBUG_PRINTF("bad logical key count\n");
-        return 0;
-    }
-    if (unlikely(rose->ckeyCount > MMB_MAX_BITS)) {
-        DEBUG_PRINTF("bad ckey count\n");
-        return 0;
-    }
-
-    if (unlikely(!stateRegionInRange(so->exhausted, so->exhausted_size,
-                                     end))) {
-        DEBUG_PRINTF("bad exhausted region\n");
-        return 0;
-    }
-    if (unlikely(so->exhausted_size != mmbit_size(rose->ekeyCount))) {
-        DEBUG_PRINTF("bad exhausted size\n");
-        return 0;
-    }
-
-    const u32 logicalCount = rose->lkeyCount + rose->lopCount;
-    if (unlikely(!stateRegionInRange(so->logicalVec, so->logicalVec_size,
-                                     end))) {
-        DEBUG_PRINTF("bad logical region\n");
-        return 0;
-    }
-    if (unlikely(so->logicalVec_size != mmbit_size(logicalCount))) {
-        DEBUG_PRINTF("bad logical size\n");
-        return 0;
-    }
-
-    if (unlikely(!stateRegionInRange(so->combVec, so->combVec_size, end))) {
-        DEBUG_PRINTF("bad combination region\n");
-        return 0;
-    }
-    if (unlikely(so->combVec_size != mmbit_size(rose->ckeyCount))) {
-        DEBUG_PRINTF("bad combination size\n");
-        return 0;
-    }
-
-    if (rose->somLocationCount) {
-        if (unlikely(so->somMultibit_size !=
-                     mmbit_size(rose->somLocationCount))) {
-            DEBUG_PRINTF("bad som multibit size\n");
-            return 0;
-        }
-        if (unlikely(!stateRegionInRange(so->somValid, so->somMultibit_size,
-                                         end))) {
-            DEBUG_PRINTF("bad somValid region\n");
-            return 0;
-        }
-        if (unlikely(!stateRegionInRange(so->somWritable,
-                                         so->somMultibit_size, end))) {
-            DEBUG_PRINTF("bad somWritable region\n");
-            return 0;
-        }
-    }
-
-    return 1;
-}
-
-static really_inline
 void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
                       char *state, match_event_handler onEvent, void *userCtx,
                       const char *data, size_t length, const u8 *history,
@@ -427,9 +348,6 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
         return HS_DB_MODE_ERROR;
     }
 
-    if (unlikely(!validBlockStateLayoutForScan(rose))) {
-        return HS_INVALID;
-    }
 
     if (unlikely(!validScratch(rose, scratch))) {
         return HS_INVALID;
@@ -666,34 +584,10 @@ hs_error_t HS_CDECL hs_open_stream(const hs_database_t *db,
         return HS_DB_MODE_ERROR;
     }
 
-    // Validate stateOffsets layout to prevent heap overflow from forged
-    // databases (CWE-122). These invariants mirror fillStateOffsets() in
-    // rose_build_bytecode.cpp: every offset region used by init_stream()
-    // and its helpers must be bounded by stateOffsets.end.
-    // The status byte at offset 0 is always written, so end must be >= 1.
-    if (unlikely(rose->stateOffsets.end < sizeof(u8))) {
-        return HS_INVALID;
-    }
-    if (unlikely(rose->stateOffsets.history > rose->stateOffsets.end)) {
-        return HS_INVALID;
-    }
-    if (unlikely(rose->historyRequired >
-        rose->stateOffsets.end - rose->stateOffsets.history)) {
-        return HS_INVALID;
-    }
-    if (unlikely(rose->stateOffsets.exhausted > rose->stateOffsets.end)) {
-        return HS_INVALID;
-    }
-    if (unlikely(rose->stateOffsets.logicalVec > rose->stateOffsets.end)) {
-        return HS_INVALID;
-    }
-    if (unlikely(rose->stateOffsets.combVec > rose->stateOffsets.end)) {
-        return HS_INVALID;
-    }
-    if (unlikely(rose->stateOffsets.somValid > rose->stateOffsets.end)) {
-        return HS_INVALID;
-    }
-    if (unlikely(rose->stateOffsets.somWritable > rose->stateOffsets.end)) {
+    // Unified state layout validation (CWE-122). Covers all stateOffsets
+    // fields including somLocation, with proper offset+size bounds and
+    // size==mmbit_size(count) consistency checks.
+    if (unlikely(validateStateLayout(rose) != HS_SUCCESS)) {
         return HS_INVALID;
     }
 
@@ -1271,6 +1165,15 @@ hs_error_t HS_CDECL hs_scan_vector(const hs_database_t *db,
 
     if (unlikely(rose->mode != HS_MODE_VECTORED)) {
         return HS_DB_MODE_ERROR;
+    }
+
+    /* Vectored mode uses init_stream() directly on scratch->bstate
+     * (sized sizeof(hs_stream) + stateOffsets.end) so we must validate the
+     * state layout before any writes through forged offsets. init_stream()
+     * writes to history, roseInitState() uses additional offsets, so use the
+     * comprehensive validateStateLayout() that covers all regions. */
+    if (unlikely(validateStateLayout(rose) != HS_SUCCESS)) {
+        return HS_INVALID;
     }
 
     if (unlikely(!validScratch(rose, scratch))) {

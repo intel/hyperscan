@@ -112,7 +112,7 @@ void validateExt(const hs_expr_ext &ext) {
 }
 
 /**
- * PSIRT PTK0006375: Validate pattern buffer to prevent heap out-of-bounds read.
+ * Validate pattern buffer to prevent heap out-of-bounds read.
  *
  * This validation supports embedded nulls by counting both null and non-null
  * bytes across the declared length.
@@ -347,6 +347,18 @@ void addExpression(NG &ng, unsigned index, const char *expression,
                                "are supported in combination "
                                "with HS_FLAG_COMBINATION.");
         }
+
+        // Enforce a length limit on logical combination
+        // expressions before parsing, to prevent denial of service via
+        // excessive CPU time and heap memory consumption in
+        // parseLogicalCombination(). Use the same configurable limit as
+        // regular patterns (cc.grey.limitPatternLength) for consistency.
+        size_t maxCombLen = cc.grey.limitPatternLength;
+        if (strnlen(expression, maxCombLen + 1) > maxCombLen) {
+            throw CompileError("Logical combination expression length exceeds "
+                               "limit.");
+        }
+
         if (flags & HS_FLAG_QUIET) {
             DEBUG_PRINTF("skip QUIET logical combination expression %u\n", id);
         } else {
@@ -478,7 +490,7 @@ void addLitExpression(NG &ng, unsigned index, const char *expression,
         throw CompileError("Pure literal API doesn't support empty string.");
     }
 
-    // PSIRT PTK0006375: validate length/content consistency with embedded nulls.
+    // Validate length/content consistency with embedded nulls.
 #ifdef VALIDATE_PATTERN_INPUT
     if (!validatePatternInput(expression, expLength)) {
         if (expLength == 0) {
