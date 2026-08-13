@@ -36,6 +36,10 @@
 #include "ue2common.h"
 #include "hwlm/hwlm.h"
 
+/** Number of entries in the fdrExec dispatch table (funcs[]). Any serialized
+ *  FDR engineID must be strictly less than this value. */
+#define FDR_ENGINE_COUNT 19
+
 // C linkage in the API
 #ifdef __cplusplus
 extern "C" {

@@ -90,9 +90,13 @@ u32 rt_mmbit_size(u32 total_bits) {
     if (total_bits == 0) {
         return 0;
     }
-    /* Reject counts beyond the compile-time limit. */
+    /* Defensive clamp against untrusted (Coverity-tainted) inputs:
+     * every legitimate compile-time mmbit is bounded by MMB_MAX_BITS.
+     * Rejecting anything above that value both prevents integer overflow
+     * in the size computation below and satisfies static-analysis taint
+     * tracking on callers that pass forged RoseEngine counts. */
     if (total_bits > MMB_MAX_BITS) {
-        return UINT32_MAX;
+        return 0;
     }
     /* Flat model: simple bit vector. */
     if (total_bits <= 256) {
@@ -128,6 +132,12 @@ u32 rt_mmbit_size(u32 total_bits) {
 #endif
 static really_inline
 u32 rt_fatbit_size(u32 total_bits) {
+    /* Defensive clamp: rt_mmbit_size() rejects total_bits > MMB_MAX_BITS,
+     * but check here too so callers using rt_fatbit_size() directly get
+     * the same taint filter. */
+    if (total_bits > MMB_MAX_BITS) {
+        return 0;
+    }
     u32 mmsz = rt_mmbit_size(total_bits);
     return mmsz > MIN_FAT_SIZE ? mmsz : MIN_FAT_SIZE;
 }

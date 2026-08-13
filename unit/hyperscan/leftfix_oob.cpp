@@ -50,7 +50,7 @@
 namespace {
 
 // coverity[RULE_OF_ZERO_THREE_FIVE:FALSE]
-TEST(PsirtLeftfixOob, ExpandStreamRejectsForgedLeftfix) {
+TEST(LeftfixOob, ExpandStreamRejectsForgedLeftfix) {
     const size_t bytecode_offset = ROUNDUP_N(sizeof(hs_database_t), 64);
     const size_t rose_size = 0x500;
     const size_t total_size = bytecode_offset + rose_size;

@@ -373,7 +373,7 @@ hs_compile_lit_multi_int(const char *const *expressions, const unsigned *flags,
                 return HS_COMPILER_ERROR;
             }
 
-            // PSIRT PTK0006374: enforce centralized pattern length limit.
+            // Enforce centralized pattern length limit.
             if (lens[i] > MAX_PATTERN_LENGTH) {
                 *db = nullptr;
                 *comp_error = generateCompileError(

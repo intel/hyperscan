@@ -1037,6 +1037,14 @@ hs_error_t HS_CDECL hs_populate_platform(hs_platform_info_t *platform);
  */
 #define HS_CPU_FEATURES_AVX512VBMI       (1ULL << 4)
 
+/**
+ * CPU features flag - _ALL means used for universal database compilation.
+ *
+ * Setting this flag indicates the target platform supports all kinds of
+ * SSSE3/AVX2/AVX512/AVX512VBMI platforms.
+ */
+#define HS_PLATFORM_ALL                  (0xabcdef11abcdef00ULL)
+
 /** @} */
 
 /**
