@@ -122,7 +122,7 @@ void checkPositions(vector<PositionInfo> &v, const GlushkovBuildState &bs) {
 
 void ComponentRepeat::notePositions(GlushkovBuildState &bs) {
     assert(m_max > 0);
-    assert(m_max == NoLimit || m_max < MAX_REPEAT);
+    assert(m_max == NoLimit || m_max <= MAX_REPEAT);
 
     /* Note: We can construct smaller subgraphs if we're not maintaining edge
      * priorities. */
