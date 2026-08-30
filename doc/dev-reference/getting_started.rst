@@ -129,6 +129,27 @@ system (e.g. Debian/Ubuntu/RedHat packages, FreeBSD ports, etc). However,
 ensure that the correct version is present. As for Windows, in order to have
 Ragel, you may use Cygwin to build it from source.
 
+Optional Dependencies
+---------------------
+
+The following dependencies are optional. Their required versions are listed
+in the table below.
+
+* pkg-config will be used to generate pkg-config metadata for ``libhs``.
+  Additionally it must be installed to dynamically link Sqlite and PCRE,
+  which are build the ``hsbench`` and ``hscollider``.
+* Sqlite is required to build the ``hsbench`` benchmarking tool.
+* PCRE is required to build the ``hscollider`` tool.
+
+======================================================================= =========== ====================================
+Dependency                                                              Version     Notes
+======================================================================= =========== ====================================
+`pkg-config <https://www.freedesktop.org/wiki/Software/pkg-config/>`_   N/A
+`Sqlite <https://www.sqlite.org/index.html>`_                           >=3         Versions 3.8.7-3.8.10 are **not**
+                                                                                    compatible.
+`PCRE <https://www.pcre.org/>`_                                         >=8.41
+======================================================================= =========== ====================================
+
 Boost Headers
 -------------
 

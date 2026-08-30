@@ -5,10 +5,14 @@
 option(SQLITE_PREFER_STATIC "Build sqlite3 statically instead of using an installed lib" OFF)
 
 if(NOT WIN32 AND NOT SQLITE_PREFER_STATIC)
-find_package(PkgConfig QUIET)
+    find_package(PkgConfig)
 
-# first check for sqlite on the system
-pkg_check_modules(SQLITE3 sqlite3)
+    if(NOT PkgConfig_FOUND)
+        message(STATUS "pkg-config was not found. This is required to dynamically link sqlite3.")
+    else()
+        # first check for sqlite on the system
+        pkg_check_modules(SQLITE3 sqlite3)
+    endif()
 endif()
 
 if (NOT SQLITE3_FOUND)

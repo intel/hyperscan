@@ -52,10 +52,16 @@ if (PCRE_BUILD_SOURCE)
 else ()
     # pkgconf should save us
     find_package(PkgConfig)
+    if (NOT PkgConfig_FOUND)
+        message(STATUS "pkg-config was not found. This is required to dynamically link libpcre.")
+        return ()
+        # first check for sqlite on the system
+    endif ()
+
     pkg_check_modules(PCRE libpcre>=${PCRE_REQUIRED_VERSION})
     if (PCRE_FOUND)
         set(CORRECT_PCRE_VERSION TRUE)
-        message(STATUS "PCRE version ${PCRE_REQUIRED_VERSION} or above")
+        message(STATUS "Found PCRE version ${PCRE_REQUIRED_VERSION} or above")
     else ()
         message(STATUS "PCRE version ${PCRE_REQUIRED_VERSION} or above not found")
         return ()
