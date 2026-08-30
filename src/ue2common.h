@@ -46,7 +46,7 @@
 #include <stdint.h>
 
 /* ick */
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 #define ALIGN_ATTR(x) __declspec(align(x))
 #else
 #define ALIGN_ATTR(x) __attribute__((aligned((x))))
@@ -66,7 +66,7 @@ typedef signed int s32;
 /* We append the 'a' for aligned, since these aren't common, garden variety
  * 64 bit values. The alignment is necessary for structs on some platforms,
  * so we don't end up performing accidental unaligned accesses. */
-#if defined(_WIN32) && ! defined(_WIN64)
+#if defined(_MSC_VER) && ! defined(_WIN64)
 typedef unsigned long long ALIGN_ATTR(4) u64a;
 typedef signed long long ALIGN_ATTR(4) s64a;
 #else
@@ -83,7 +83,7 @@ typedef u32 ReportID;
 
 /* Shorthand for attribute to mark a function as part of our public API.
  * Functions without this attribute will be hidden. */
-#if !defined(_WIN32)
+#if !defined(_MSC_VER)
 #define HS_PUBLIC_API     __attribute__((visibility("default")))
 #else
 // TODO: dllexport defines for windows
@@ -93,14 +93,14 @@ typedef u32 ReportID;
 #define ARRAY_LENGTH(a) (sizeof(a)/sizeof((a)[0]))
 
 /** \brief Shorthand for the attribute to shut gcc about unused parameters */
-#if !defined(_WIN32)
+#if !defined(_MSC_VER)
 #define UNUSED __attribute__ ((unused))
 #else
 #define UNUSED
 #endif
 
 /* really_inline forces inlining always */
-#if !defined(_WIN32)
+#if !defined(_MSC_VER)
 #if defined(HS_OPTIMIZE)
 #define really_inline inline __attribute__ ((always_inline, unused))
 #else
@@ -130,7 +130,7 @@ typedef u32 ReportID;
 
 
 // We use C99-style "restrict".
-#ifdef _WIN32
+#ifdef _MSC_VER
 #ifdef __cplusplus
 #define restrict
 #else
@@ -186,7 +186,7 @@ typedef u32 ReportID;
 #define LIMIT_TO_AT_MOST(a, b) (*(a) = MIN(*(a),(b)))
 #define ENSURE_AT_LEAST(a, b) (*(a) = MAX(*(a),(b)))
 
-#ifndef _WIN32
+#ifndef _MSC_VER
 #ifndef likely
   #define likely(x)     __builtin_expect(!!(x), 1)
 #endif
@@ -199,7 +199,7 @@ typedef u32 ReportID;
 #endif
 
 #if !defined(RELEASE_BUILD) || defined(DEBUG)
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define PATH_SEP '\\'
 #else
 #define PATH_SEP '/'
