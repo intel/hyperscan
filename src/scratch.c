@@ -118,6 +118,9 @@ hs_error_t validate_queue_fatbits(const struct RoseEngine *rose) {
     return HS_SUCCESS;
 }
 
+#define SCRATCH_CACHE_ALIGN 64
+#define SCRATCH_ARRAY_BUF   256
+
 /**
  * Determine the space required for a correctly aligned array of fatbit
  * structure, laid out as:
@@ -188,7 +191,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     u32 som_attempted_size = proto->som_fatbit_size;
 
     struct hs_scratch *s;
-    struct hs_scratch *s_tmp;
+    struct hs_scratch *s_tmp = *scratch;
     size_t queue_size = queueCount * sizeof(struct mq);
     size_t qmpq_size = queueCount * sizeof(struct queue_match);
 
@@ -217,17 +220,21 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
 
     /* the struct plus the allocated stuff plus padding for cacheline
      * alignment */
-    const size_t alloc_size = sizeof(struct hs_scratch) + size + 256;
-    s_tmp = hs_scratch_alloc(alloc_size);
-    hs_error_t err = hs_check_alloc(s_tmp);
-    if (err != HS_SUCCESS) {
-        hs_scratch_free(s_tmp);
-        *scratch = NULL;
-        return err;
+    const size_t alloc_size = sizeof(struct hs_scratch) + size +
+                              SCRATCH_CACHE_ALIGN + SCRATCH_ARRAY_BUF;
+
+    if (!s_tmp) {
+        s_tmp = hs_scratch_alloc(alloc_size);
+        hs_error_t err = hs_check_alloc(s_tmp);
+        if (err != HS_SUCCESS) {
+            hs_scratch_free(s_tmp);
+            *scratch = NULL;
+            return err;
+        }
     }
 
     memset(s_tmp, 0, alloc_size);
-    s = ROUNDUP_PTR(s_tmp, 64);
+    s = ROUNDUP_PTR(s_tmp, SCRATCH_CACHE_ALIGN);
     DEBUG_PRINTF("allocated %zu bytes at %p but realigning to %p\n", alloc_size, s_tmp, s);
     DEBUG_PRINTF("sizeof %zu\n", sizeof(struct hs_scratch));
     *s = *proto;
@@ -287,7 +294,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->tStateSize = tStateSize;
     current += tStateSize;
 
-    current = ROUNDUP_PTR(current, 64);
+    current = ROUNDUP_PTR(current, SCRATCH_CACHE_ALIGN);
 
     assert(ISALIGNED_N(current, 8));
     s->deduper.som_start_log[0] = (u64a *)current;
@@ -321,7 +328,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->som_attempted_set = (struct fatbit *)current;
     current += som_attempted_size;
 
-    current = ROUNDUP_PTR(current, 64);
+    current = ROUNDUP_PTR(current, SCRATCH_CACHE_ALIGN);
     assert(ISALIGNED_CL(current));
     s->fullState = (char *)current;
     s->fullStateSize = fullStateSize;
@@ -385,7 +392,8 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
     int resize = 0;
 
     hs_scratch_t *proto;
-    hs_scratch_t *proto_tmp = hs_scratch_alloc(sizeof(struct hs_scratch) + 256);
+    hs_scratch_t *proto_tmp = hs_scratch_alloc(sizeof(struct hs_scratch) +
+                                               SCRATCH_CACHE_ALIGN + SCRATCH_ARRAY_BUF);
     hs_error_t proto_ret = hs_check_alloc(proto_tmp);
     if (proto_ret != HS_SUCCESS) {
         hs_scratch_free(proto_tmp);
@@ -396,7 +404,7 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
         return proto_ret;
     }
 
-    proto = ROUNDUP_PTR(proto_tmp, 64);
+    proto = ROUNDUP_PTR(proto_tmp, SCRATCH_CACHE_ALIGN);
 
     if (*scratch) {
         *proto = **scratch;
@@ -493,6 +501,7 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
     if (resize) {
         if (*scratch) {
             hs_scratch_free((*scratch)->scratch_alloc);
+            *scratch = NULL;
         }
 
         hs_error_t alloc_ret = alloc_scratch(proto, scratch);
@@ -518,6 +527,24 @@ hs_error_t HS_CDECL hs_clone_scratch(const hs_scratch_t *src,
     }
 
     *dest = NULL;
+    hs_error_t ret = alloc_scratch(src, dest);
+    if (ret != HS_SUCCESS) {
+        *dest = NULL;
+        return ret;
+    }
+
+    assert(!(*dest)->in_use);
+    return HS_SUCCESS;
+}
+
+HS_PUBLIC_API
+hs_error_t HS_CDECL hs_clone_scratch_at(const hs_scratch_t *src,
+                                        hs_scratch_t **dest) {
+    if (!dest || !*dest || !src ||
+        !ISALIGNED_CL(src) || src->magic != SCRATCH_MAGIC) {
+        return HS_INVALID;
+    }
+
     hs_error_t ret = alloc_scratch(src, dest);
     if (ret != HS_SUCCESS) {
         *dest = NULL;
@@ -563,3 +590,17 @@ hs_error_t HS_CDECL hs_scratch_size(const hs_scratch_t *scratch, size_t *size) {
 
     return HS_SUCCESS;
 }
+
+HS_PUBLIC_API
+hs_error_t HS_CDECL hs_scratch_memaddr(const hs_scratch_t *scratch, char **memaddr) {
+    if (!memaddr || !scratch || !ISALIGNED_CL(scratch) ||
+        scratch->magic != SCRATCH_MAGIC) {
+        return HS_INVALID;
+    }
+
+    assert(scratch->scratch_alloc);
+    *memaddr = scratch->scratch_alloc;
+
+    return HS_SUCCESS;
+}
+

@@ -149,6 +149,41 @@ hs_error_t HS_CDECL hs_open_stream(const hs_database_t *db, unsigned int flags,
                                    hs_stream_t **stream);
 
 /**
+ * Open and initialise a stream from pre-allocated memory.
+ *
+ * @param db
+ *      A compiled pattern database.
+ *
+ * @param flags
+ *      Flags modifying the behaviour of the stream. This parameter is provided
+ *      for future use and is unused at present.
+ *
+ * @param stream
+ *      The caller sets stream to point at a block of memory at least the size
+ *      returned by hs_stream_size().
+ *
+ * @return
+ *      @ref HS_SUCCESS on success, other values on failure.
+ */
+hs_error_t HS_CDECL hs_open_stream_at(const hs_database_t *db, unsigned int flags,
+                                   hs_stream_t *stream);
+
+/**
+ * Report the size of a stream object based on the given database.
+ *
+ * @param db
+ *      A compiled pattern database.
+ *
+ * @param streams_size
+ *      Returns the size in bytes of the given stream.
+ *
+ * @return
+ *      @ref HS_SUCCESS on success, other values on failure.
+ */
+hs_error_t HS_CDECL hs_stream_size(const hs_database_t *db,
+                                   size_t *stream_size);
+
+/**
  * Write data to be scanned to the opened stream.
  *
  * This is the function call in which the actual pattern matching takes place
@@ -231,6 +266,31 @@ hs_error_t HS_CDECL hs_scan_stream(hs_stream_t *id, const char *data,
  */
 hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
                                     match_event_handler onEvent, void *ctxt);
+
+/**
+ * Close a stream, but do not free the memory associated with the stream id.
+ * This must be called when the stream is externally allocated.
+ *
+ * @param id
+ *      The stream ID returned by @ref hs_open_stream().
+ *
+ * @param scratch
+ *      A per-thread scratch space allocated by @ref hs_alloc_scratch(). This is
+ *      allowed to be NULL only if the @p onEvent callback is also NULL.
+ *
+ * @param onEvent
+ *      Pointer to a match event callback function. If a NULL pointer is given,
+ *      no matches will be returned.
+ *
+ * @param ctxt
+ *      The user defined pointer which will be passed to the callback function
+ *      when a match occurs.
+ *
+ * @return
+ *      Returns @ref HS_SUCCESS on success, other values on failure.
+ */
+hs_error_t HS_CDECL hs_close_stream_nofree(hs_stream_t *id, hs_scratch_t *scratch,
+                                           match_event_handler onEvent, void *ctxt);
 
 /**
  * Reset a stream to an initial state.
@@ -577,6 +637,29 @@ hs_error_t HS_CDECL hs_clone_scratch(const hs_scratch_t *src,
                                      hs_scratch_t **dest);
 
 /**
+ * Place a scratch space at the specified address and initialize it as
+ * a clone of an existing scratch space.
+ *
+ * This is useful when multiple concurrent threads will be using the same set
+ * of compiled databases, and another scratch space is required.  The caller
+ * must allocate a block of memory the size as specified by hs_scratch_size(src).
+ *
+ * @param src
+ *      The existing @ref hs_scratch_t to be cloned.
+ *
+ * @param dest
+ *      The caller sets dest to the start of the allocated block of memory.
+ *      Upon return dest is set to the aligned scratch space. Please note that
+ *      dest->scratch_alloc points to the original base of the block of memory.
+ *
+ * @return
+ *      @ref HS_SUCCESS on success; @ref HS_NOMEM if the allocation fails.
+ *      Other errors may be returned if invalid parameters are specified.
+ */
+hs_error_t HS_CDECL hs_clone_scratch_at(const hs_scratch_t *src,
+                                        hs_scratch_t **dest);
+
+/**
  * Provides the size of the given scratch space.
  *
  * @param scratch
@@ -592,6 +675,23 @@ hs_error_t HS_CDECL hs_clone_scratch(const hs_scratch_t *src,
  */
 hs_error_t HS_CDECL hs_scratch_size(const hs_scratch_t *scratch,
                                     size_t *scratch_size);
+
+/**
+ * Provides the base address of the scratch area, which can be used for freeing
+ * externally allocated scratch buffers.
+ *
+ * @param scratch
+ *      A per-thread scratch space allocated by @ref hs_alloc_scratch() or @ref
+ *      hs_clone_scratch().
+ *
+ * @param memaddr
+ *      On success, the pointer to the base of the allocated memory of the
+ *      scratch area.
+ *
+ * @return
+ *      @ref HS_SUCCESS on success, other values on failure.
+ */
+hs_error_t HS_CDECL hs_scratch_memaddr(const hs_scratch_t *scratch, char **memaddr);
 
 /**
  * Free a scratch block previously allocated by @ref hs_alloc_scratch() or @ref
