@@ -348,7 +348,7 @@ static really_inline
 m512 vectoredLoad512(m512 *p_mask, const u8 *ptr, const size_t start_offset,
                      const u8 *lo, const u8 *hi, const u8 *hbuf, size_t hlen,
                      const u32 nMasks) {
-    m512 val;
+    m512 val = set64x8(0x0);
 
     uintptr_t copy_start;
     uintptr_t copy_len;
