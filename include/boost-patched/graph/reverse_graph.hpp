@@ -1,8 +1,6 @@
 #ifndef REVERSE_GRAPH_PATCHED_H_
 #define REVERSE_GRAPH_PATCHED_H_
 
-#include <boost/version.hpp>
-
 #include <boost/graph/reverse_graph.hpp>
 
 #if defined(BOOST_REVGRAPH_PATCH)
