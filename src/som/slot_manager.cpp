@@ -243,7 +243,7 @@ u32 SomSlotManager::numSomSlots() const {
 
 u32 SomSlotManager::addRevNfa(bytecode_ptr<NFA> nfa, u32 maxWidth) {
     u32 rv = verify_u32(rev_nfas.size());
-    rev_nfas.push_back(move(nfa));
+    rev_nfas.push_back(std::move(nfa));
 
     // A rev nfa commits us to having enough history around to handle its
     // max width.

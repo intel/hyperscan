@@ -497,7 +497,7 @@ void ch_compile_multi_int(const char *const *expressions, const unsigned *flags,
         auto patternData =
             ue2::make_unique<PatternData>(myExpr, myFlags, i, myId, mode, match_limit,
                                           match_limit_recursion, platform);
-        pcres.push_back(move(patternData));
+        pcres.push_back(std::move(patternData));
         PatternData &curr = *pcres.back();
 
         if (!(myFlags & HS_FLAG_SINGLEMATCH)) {

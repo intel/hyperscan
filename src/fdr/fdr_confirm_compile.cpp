@@ -309,7 +309,7 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
             DEBUG_PRINTF("b %d sz %zu\n", b, vl.size());
             auto fc = getFDRConfirm(vl, make_small);
             totalConfirmSize += fc.size();
-            bc2Conf.emplace(b, move(fc));
+            bc2Conf.emplace(b, std::move(fc));
         }
     }
 

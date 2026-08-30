@@ -702,9 +702,9 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
                 auto d = getDfa(*rdfa, false, cc, rm);
                 assert(d);
                 if (cc.grey.roseMcClellanSuffix != 2) {
-                    n = pickImpl(move(d), move(n), fast_nfa);
+                    n = pickImpl(std::move(d), std::move(n), fast_nfa);
                 } else {
-                    n = move(d);
+                    n = std::move(d);
                 }
 
                 assert(n);
@@ -854,7 +854,7 @@ bytecode_ptr<NFA> makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
         if (rdfa) {
             auto d = getDfa(*rdfa, is_transient, cc, rm);
             assert(d);
-            n = pickImpl(move(d), move(n), fast_nfa);
+            n = pickImpl(std::move(d), std::move(n), fast_nfa);
         }
     }
 
@@ -1423,12 +1423,12 @@ void buildExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
             setLeftNfaProperties(*n, leftfix);
 
             ExclusiveSubengine engine;
-            engine.nfa = move(n);
+            engine.nfa = std::move(n);
             engine.vertices = verts;
-            info.subengines.push_back(move(engine));
+            info.subengines.push_back(std::move(engine));
         }
         info.queue = qif.get_queue();
-        exclusive_info.push_back(move(info));
+        exclusive_info.push_back(std::move(info));
     }
     updateExclusiveInfixProperties(build, exclusive_info, bc.leftfix_info,
                                    no_retrigger_queues);
@@ -1650,7 +1650,7 @@ public:
             if (rdfa) {
                 auto d = getDfa(*rdfa, false, cc, rm);
                 if (d) {
-                    n = pickImpl(move(d), move(n), fast_nfa);
+                    n = pickImpl(std::move(d), std::move(n), fast_nfa);
                 }
             }
         }
@@ -1865,15 +1865,15 @@ void buildExclusiveSuffixes(RoseBuildImpl &build, build_context &bc,
             setSuffixProperties(*n, s, build.rm);
 
             ExclusiveSubengine engine;
-            engine.nfa = move(n);
+            engine.nfa = std::move(n);
             engine.vertices = verts;
-            info.subengines.push_back(move(engine));
+            info.subengines.push_back(std::move(engine));
 
             const auto &reports = all_reports(s);
             info.reports.insert(reports.begin(), reports.end());
         }
         info.queue = qif.get_queue();
-        exclusive_info.push_back(move(info));
+        exclusive_info.push_back(std::move(info));
     }
     updateExclusiveSuffixProperties(build, exclusive_info,
                                     no_retrigger_queues);
@@ -2417,7 +2417,7 @@ u32 writeProgram(build_context &bc, RoseProgram &&program) {
     u32 offset = bc.engine_blob.add(prog_bytecode);
     DEBUG_PRINTF("prog len %zu written at offset %u\n", prog_bytecode.size(),
                  offset);
-    bc.program_cache.emplace(move(program), offset);
+    bc.program_cache.emplace(std::move(program), offset);
     return offset;
 }
 
@@ -2582,13 +2582,13 @@ void makeBoundaryPrograms(const RoseBuildImpl &build, build_context &bc,
     DEBUG_PRINTF("report ^$: %zu\n", dboundary.report_at_0_eod_full.size());
 
     auto eod_prog = makeBoundaryProgram(build, boundary.report_at_eod);
-    out.reportEodOffset = writeProgram(bc, move(eod_prog));
+    out.reportEodOffset = writeProgram(bc, std::move(eod_prog));
 
     auto zero_prog = makeBoundaryProgram(build, boundary.report_at_0);
-    out.reportZeroOffset = writeProgram(bc, move(zero_prog));
+    out.reportZeroOffset = writeProgram(bc, std::move(zero_prog));
 
     auto zeod_prog = makeBoundaryProgram(build, dboundary.report_at_0_eod_full);
-    out.reportZeroEodOffset = writeProgram(bc, move(zeod_prog));
+    out.reportZeroEodOffset = writeProgram(bc, std::move(zeod_prog));
 }
 
 static
@@ -2753,10 +2753,10 @@ RoseProgram makeFragmentProgram(const RoseBuildImpl &build, build_context &bc,
     for (const auto &lit_id : lit_ids) {
         auto prog = makeLiteralProgram(build, bc, prog_build, lit_id,
                                        lit_edge_map, false);
-        blocks.push_back(move(prog));
+        blocks.push_back(std::move(prog));
     }
 
-    return assembleProgramBlocks(move(blocks));
+    return assembleProgramBlocks(std::move(blocks));
 }
 
 /**
@@ -2866,7 +2866,7 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
         auto &fi = m.second;
         DEBUG_PRINTF("frag %s -> ids: %s\n", dumpString(m.first.s).c_str(),
                      as_string_list(fi.lit_ids).c_str());
-        fragments.emplace_back(frag_id, lit.s, fi.groups, move(fi.lit_ids));
+        fragments.emplace_back(frag_id, lit.s, fi.groups, std::move(fi.lit_ids));
         frag_id++;
         assert(frag_id == fragments.size());
     }
@@ -2982,7 +2982,7 @@ void buildFragmentPrograms(const RoseBuildImpl &build,
                          child_offset);
             addIncludedJumpProgram(lit_prog, child_offset, pfrag.squash);
         }
-        pfrag.lit_program_offset = writeProgram(bc, move(lit_prog));
+        pfrag.lit_program_offset = writeProgram(bc, std::move(lit_prog));
 
         // We only do delayed rebuild in streaming mode.
         if (!build.cc.streaming) {
@@ -3002,7 +3002,7 @@ void buildFragmentPrograms(const RoseBuildImpl &build,
             addIncludedJumpProgram(rebuild_prog, child_offset,
                                    pfrag.delay_squash);
         }
-        pfrag.delay_program_offset = writeProgram(bc, move(rebuild_prog));
+        pfrag.delay_program_offset = writeProgram(bc, std::move(rebuild_prog));
     }
 }
 
@@ -3091,7 +3091,7 @@ pair<u32, u32> writeDelayPrograms(const RoseBuildImpl &build,
                 auto prog = makeLiteralProgram(build, bc, prog_build,
                                                delayed_lit_id, lit_edge_map,
                                                false);
-                u32 offset = writeProgram(bc, move(prog));
+                u32 offset = writeProgram(bc, std::move(prog));
 
                 u32 delay_id;
                 auto it = cache.find(offset);
@@ -3151,7 +3151,7 @@ pair<u32, u32> writeAnchoredPrograms(const RoseBuildImpl &build,
 
             auto prog = makeLiteralProgram(build, bc, prog_build, lit_id,
                                            lit_edge_map, true);
-            u32 offset = writeProgram(bc, move(prog));
+            u32 offset = writeProgram(bc, std::move(prog));
             DEBUG_PRINTF("lit_id=%u -> anch prog at %u\n", lit_id, offset);
 
             u32 anch_id;
@@ -3211,7 +3211,7 @@ pair<u32, u32> buildReportPrograms(const RoseBuildImpl &build,
 
     for (ReportID id : reports) {
         auto program = makeReportProgram(build, bc.needs_mpv_catchup, id);
-        u32 offset = writeProgram(bc, move(program));
+        u32 offset = writeProgram(bc, std::move(program));
         programs.push_back(offset);
         build.rm.setProgramOffset(id, offset);
         DEBUG_PRINTF("program for report %u @ %u (%zu instructions)\n", id,
@@ -3327,7 +3327,7 @@ void addEodEventProgram(const RoseBuildImpl &build, build_context &bc,
                                     bc.roleStateIndices, prog_build,
                                     build.eod_event_literal_id, edge_list,
                                     false);
-    program.add_block(move(block));
+    program.add_block(std::move(block));
 }
 
 static
@@ -3716,7 +3716,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                          drproto.get(), eproto.get(), sbproto.get());
 
     auto eod_prog = makeEodProgram(*this, bc, prog_build, eodNfaIterOffset);
-    proto.eodProgramOffset = writeProgram(bc, move(eod_prog));
+    proto.eodProgramOffset = writeProgram(bc, std::move(eod_prog));
 
     size_t longLitStreamStateRequired = 0;
     proto.longLitTableOffset
@@ -3735,11 +3735,11 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     writeLogicalInfo(rm, bc.engine_blob, proto);
 
     auto flushComb_prog = makeFlushCombProgram(proto);
-    proto.flushCombProgramOffset = writeProgram(bc, move(flushComb_prog));
+    proto.flushCombProgramOffset = writeProgram(bc, std::move(flushComb_prog));
 
     auto lastFlushComb_prog = makeLastFlushCombProgram(proto);
     proto.lastFlushCombProgramOffset =
-        writeProgram(bc, move(lastFlushComb_prog));
+        writeProgram(bc, std::move(lastFlushComb_prog));
 
     // Build anchored matcher.
     auto atable = buildAnchoredMatcher(*this, fragments, anchored_dfas);
@@ -3883,7 +3883,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     bc.engine_blob.write_bytes(engine.get());
 
     // Add a small write engine if appropriate.
-    engine = addSmallWriteEngine(*this, bc.resources, move(engine));
+    engine = addSmallWriteEngine(*this, bc.resources, std::move(engine));
 
     DEBUG_PRINTF("rose done %p\n", engine.get());
 

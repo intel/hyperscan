@@ -213,7 +213,7 @@ void convertFloodProneSuffix(RoseBuildImpl &tbi, RoseVertex v, u32 lit_id,
 
     // Apply the NFA.
     assert(!g[v].suffix);
-    g[v].suffix.graph = move(h);
+    g[v].suffix.graph = std::move(h);
     g[v].reports.clear();
 
     // Swap v's literal for a shorter one.

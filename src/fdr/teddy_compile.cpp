@@ -89,7 +89,7 @@ public:
                   const TeddyEngineDescription &eng_in, bool make_small_in,
                   const Grey &grey_in)
         : eng(eng_in), grey(grey_in), lits(lits_in),
-          bucketToLits(move(bucketToLits_in)), make_small(make_small_in) {}
+          bucketToLits(std::move(bucketToLits_in)), make_small(make_small_in) {}
 
     bytecode_ptr<FDR> build();
 };
@@ -677,7 +677,7 @@ unique_ptr<HWLMProto> teddyBuildProtoHinted(
         return nullptr;
     }
 
-    return ue2::make_unique<HWLMProto>(engType, move(des), lits,
+    return ue2::make_unique<HWLMProto>(engType, std::move(des), lits,
                                        bucketToLits, make_small);
 }
 

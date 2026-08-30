@@ -99,7 +99,7 @@ public:
                 const FDREngineDescription &eng_in,
                 bool make_small_in, const Grey &grey_in)
         : eng(eng_in), grey(grey_in), tab(eng_in.getTabSizeBytes()),
-          lits(move(lits_in)), bucketToLits(move(bucketToLits_in)),
+          lits(std::move(lits_in)), bucketToLits(std::move(bucketToLits_in)),
           make_small(make_small_in) {}
 
     bytecode_ptr<FDR> build();
@@ -505,7 +505,7 @@ map<BucketIndex, vector<LiteralIndex>> assignStringsToBuckets(
     map<BucketIndex, vector<LiteralIndex>> bucketToLits;
     size_t bucketCnt = buckets.size();
     for (size_t i = 0; i < bucketCnt; i++) {
-        bucketToLits.emplace(bucketCnt - i - 1, move(buckets[i]));
+        bucketToLits.emplace(bucketCnt - i - 1, std::move(buckets[i]));
     }
 
     return bucketToLits;
@@ -868,7 +868,7 @@ unique_ptr<HWLMProto> fdrBuildProtoInternal(u8 engType,
     auto bucketToLits = assignStringsToBuckets(lits, *des);
     addIncludedInfo(lits, des->getNumBuckets(), bucketToLits);
     auto proto =
-        ue2::make_unique<HWLMProto>(engType, move(des), lits, bucketToLits,
+        ue2::make_unique<HWLMProto>(engType, std::move(des), lits, bucketToLits,
                                     make_small);
     return proto;
 }

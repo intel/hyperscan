@@ -739,7 +739,7 @@ void addFragmentLiteral(const RoseBuildImpl &build, MatcherProto &mp,
 
     const auto &groups = f.groups;
 
-    mp.lits.emplace_back(move(s_final), nocase, noruns, f.fragment_id,
+    mp.lits.emplace_back(std::move(s_final), nocase, noruns, f.fragment_id,
                          groups, msk, cmp);
 }
 
@@ -937,7 +937,7 @@ buildFloatingMatcherProto(const RoseBuildImpl &build,
         throw CompileError("Unable to generate literal matcher proto.");
      }
 
-     return ue2::make_unique<LitProto>(move(proto), mp.accel_lits);
+     return ue2::make_unique<LitProto>(std::move(proto), mp.accel_lits);
 }
 
 unique_ptr<LitProto>
@@ -965,7 +965,7 @@ buildDelayRebuildMatcherProto(const RoseBuildImpl &build,
         throw CompileError("Unable to generate literal matcher proto.");
     }
 
-    return ue2::make_unique<LitProto>(move(proto), mp.accel_lits);
+    return ue2::make_unique<LitProto>(std::move(proto), mp.accel_lits);
 }
 
 unique_ptr<LitProto>
@@ -1022,7 +1022,7 @@ buildSmallBlockMatcherProto(const RoseBuildImpl &build,
         throw CompileError("Unable to generate literal matcher proto.");
     }
 
-    return ue2::make_unique<LitProto>(move(proto), mp.accel_lits);
+    return ue2::make_unique<LitProto>(std::move(proto), mp.accel_lits);
 }
 
 unique_ptr<LitProto>
@@ -1047,7 +1047,7 @@ buildEodAnchoredMatcherProto(const RoseBuildImpl &build,
         throw CompileError("Unable to generate literal matcher proto.");
     }
 
-    return ue2::make_unique<LitProto>(move(proto), mp.accel_lits);
+    return ue2::make_unique<LitProto>(std::move(proto), mp.accel_lits);
 }
 
 } // namespace ue2

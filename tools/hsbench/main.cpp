@@ -118,7 +118,7 @@ public:
                   thread_barrier &tb_in, thread_func_t function_in,
                   vector<DataBlock> corpus_data_in)
         : num(num_in), results(repeats), engine(db_in),
-          enginectx(db_in.makeContext()), corpus_data(move(corpus_data_in)),
+          enginectx(db_in.makeContext()), corpus_data(std::move(corpus_data_in)),
           tb(tb_in), function(function_in) {}
 
     // Start the thread.
@@ -235,7 +235,7 @@ void usage(const char *error) {
 /** Wraps up a name and the set of signature IDs it refers to. */
 struct BenchmarkSigs {
     BenchmarkSigs(string name_in, SignatureSet sigs_in)
-        : name(move(name_in)), sigs(move(sigs_in)) {}
+        : name(std::move(name_in)), sigs(std::move(sigs_in)) {}
     string name;
     SignatureSet sigs;
 };
@@ -473,7 +473,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
     for (const auto &file : sigFiles) {
         SignatureSet sigs;
         loadSignatureList(file, sigs);
-        sigSets.emplace_back(file, move(sigs));
+        sigSets.emplace_back(file, std::move(sigs));
     }
 
     useLiteralApi = (bool)literalFlag;
@@ -606,7 +606,7 @@ void benchStreamingInternal(ThreadContext *ctx, vector<StreamInfo> &streams,
 
             // if this was the last block in the stream, close the stream handle
             if (b.id == stream.last_block_id) {
-                e.streamClose(move(stream.eng_handle), r);
+                e.streamClose(std::move(stream.eng_handle), r);
                 stream.eng_handle = nullptr;
             }
         }
@@ -1018,7 +1018,7 @@ void runBenchmark(const Engine &db,
             printf("Unable to start processing thread %u\n", i);
             exit(1);
         }
-        threads.push_back(move(t));
+        threads.push_back(std::move(t));
     }
 
     // Reap threads.
@@ -1066,7 +1066,7 @@ int HS_CDECL main(int argc, char *argv[]) {
         for (auto i : exprMapTemplate | map_keys) {
             sigs.push_back(i);
         }
-        sigSets.emplace_back(exprPath, move(sigs));
+        sigSets.emplace_back(exprPath, std::move(sigs));
     }
 
     // read in and process our corpus

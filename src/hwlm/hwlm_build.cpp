@@ -58,24 +58,24 @@ using namespace std;
 namespace ue2 {
 
 HWLMProto::HWLMProto(u8 engType_in, vector<hwlmLiteral> lits_in)
-    : engType(engType_in), lits(move(lits_in)) {}
+    : engType(engType_in), lits(std::move(lits_in)) {}
 
 HWLMProto::HWLMProto(u8 engType_in,
                      unique_ptr<FDREngineDescription> eng_in,
                      vector<hwlmLiteral> lits_in,
                      map<u32, vector<u32>> bucketToLits_in,
                      bool make_small_in)
-    : engType(engType_in), fdrEng(move(eng_in)), lits(move(lits_in)),
-      bucketToLits(move(bucketToLits_in)), make_small(make_small_in) {}
+    : engType(engType_in), fdrEng(std::move(eng_in)), lits(std::move(lits_in)),
+      bucketToLits(std::move(bucketToLits_in)), make_small(make_small_in) {}
 
 HWLMProto::HWLMProto(u8 engType_in,
                      unique_ptr<TeddyEngineDescription> eng_in,
                      vector<hwlmLiteral> lits_in,
                      map<u32, vector<u32>> bucketToLits_in,
                      bool make_small_in)
-    : engType(engType_in), teddyEng(move(eng_in)),
-      lits(move(lits_in)),
-      bucketToLits(move(bucketToLits_in)), make_small(make_small_in) {}
+    : engType(engType_in), teddyEng(std::move(eng_in)),
+      lits(std::move(lits_in)),
+      bucketToLits(std::move(bucketToLits_in)), make_small(make_small_in) {}
 
 HWLMProto::~HWLMProto() {}
 
@@ -133,14 +133,14 @@ bytecode_ptr<HWLM> hwlmBuild(const HWLMProto &proto, const CompileContext &cc,
         if (noodle) {
             engSize = noodle.size();
         }
-        eng = move(noodle);
+        eng = std::move(noodle);
     } else {
         DEBUG_PRINTF("building a new deal\n");
         auto fdr = fdrBuildTable(proto, cc.grey);
         if (fdr) {
             engSize = fdr.size();
         }
-        eng = move(fdr);
+        eng = std::move(fdr);
     }
 
     if (!eng) {

@@ -1782,7 +1782,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
 
     /* transfer mpv outfix to main queue */
     if (mpv_outfix) {
-        outfixes.push_back(move(*mpv_outfix));
+        outfixes.push_back(std::move(*mpv_outfix));
         mpv_outfix = nullptr;
     }
 

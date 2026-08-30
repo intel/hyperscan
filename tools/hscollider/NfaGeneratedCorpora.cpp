@@ -107,7 +107,7 @@ void NfaGeneratedCorpora::generate(unsigned id, vector<Corpus> &data) {
             a_subid = it.first;
             vector<Corpus> sub_data;
             generate(a_subid, sub_data);
-            m_data.emplace(a_subid, move(sub_data));
+            m_data.emplace(a_subid, std::move(sub_data));
         }
         assert(!m_data.empty());
         size_t num_corpus = m_data[a_subid].size();

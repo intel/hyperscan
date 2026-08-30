@@ -1026,7 +1026,7 @@ u32 addReports(const flat_set<ReportID> &r, vector<ReportID> &reports,
 
     u32 offset = verify_u32(reports.size());
     insert(&reports, reports.end(), my_reports);
-    reports_cache.emplace(move(my_reports), offset);
+    reports_cache.emplace(std::move(my_reports), offset);
     return offset;
 }
 
@@ -1064,7 +1064,7 @@ void buildAcceptsList(const build_info &args, ReportListCache &reports_cache,
             a.reports = addReports(h[v].reports, reports, reports_cache);
         }
         a.squash = addSquashMask(args, v, squash);
-        accepts.push_back(move(a));
+        accepts.push_back(std::move(a));
     }
 }
 
@@ -1819,7 +1819,7 @@ struct Factory {
             *streamState += streamStateLen;
             *scratchStateSize += sizeof(RepeatControl);
 
-            out.emplace_back(move(info));
+            out.emplace_back(std::move(info));
         }
     }
 

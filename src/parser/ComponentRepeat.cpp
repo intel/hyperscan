@@ -61,7 +61,7 @@ static constexpr u32 MAX_POSITIONS_EXPANDED = 500000; // arbitrarily huge
  * extent is effectively zero. */
 ComponentRepeat::ComponentRepeat(unique_ptr<Component> sub_comp_in, u32 min,
                                  u32 max, enum RepeatType t)
-    : type(t), sub_comp(move(sub_comp_in)), m_min(min), m_max(max),
+    : type(t), sub_comp(std::move(sub_comp_in)), m_min(min), m_max(max),
       posFirst(GlushkovBuildState::POS_UNINITIALIZED),
       posLast(GlushkovBuildState::POS_UNINITIALIZED) {
     assert(sub_comp);
@@ -362,7 +362,7 @@ void ComponentRepeat::postSubNotePositionHook() {
 unique_ptr<ComponentRepeat> makeComponentRepeat(unique_ptr<Component> sub_comp,
                                                 u32 min, u32 max,
                                                 ComponentRepeat::RepeatType t) {
-    return ue2::make_unique<ComponentRepeat>(move(sub_comp), min, max, t);
+    return ue2::make_unique<ComponentRepeat>(std::move(sub_comp), min, max, t);
 }
 
 } // namespace ue2

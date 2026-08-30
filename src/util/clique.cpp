@@ -75,7 +75,7 @@ vector<u32> findCliqueGroup(CliqueGraph &cg) {
     // Get the vertex to start from
     vector<u32> clique;
     while (!gStack.empty()) {
-        vector<u32> g = move(gStack.top());
+        vector<u32> g = std::move(gStack.top());
         gStack.pop();
 
         // Choose a vertex from the graph

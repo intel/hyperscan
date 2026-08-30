@@ -129,7 +129,7 @@ public:
         assert(!prog.empty());
 
         const RoseInstruction *old_ptr = it->get();
-        *it = move(ri);
+        *it = std::move(ri);
         update_targets(prog.begin(), prog.end(), old_ptr, it->get());
     }
 };

@@ -1781,7 +1781,7 @@ bool RoseBuildImpl::addOutfix(const NGHolder &h) {
     }
 
     if (rdfa) {
-        outfixes.push_back(OutfixInfo(move(rdfa)));
+        outfixes.push_back(OutfixInfo(std::move(rdfa)));
     } else {
         outfixes.push_back(OutfixInfo(cloneHolder(h)));
     }
