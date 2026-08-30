@@ -40,6 +40,10 @@
 #include "noodle_build.h"
 #include "scratch.h"
 #include "ue2common.h"
+#include "fdr/fdr_internal.h"
+#if defined(HS_TEDDY_ONLY)
+#include "fdr/teddy_compile.h"
+#endif
 #include "fdr/fdr_compile.h"
 #include "fdr/fdr_compile_internal.h"
 #include "fdr/fdr_engine_description.h"
@@ -56,6 +60,10 @@
 using namespace std;
 
 namespace ue2 {
+
+#if defined(HS_TEDDY_ONLY)
+static constexpr size_t TEDDY_ONLY_MAX_DECOMPOSED_EXPRESSIONS = 96;
+#endif
 
 HWLMProto::HWLMProto(u8 engType_in, vector<hwlmLiteral> lits_in)
     : engType(engType_in), lits(move(lits_in)) {}
@@ -103,6 +111,7 @@ bool everyoneHasGroups(const vector<hwlmLiteral> &lits) {
 }
 #endif
 
+#if !defined(HS_TEDDY_ONLY)
 static
 bool isNoodleable(const vector<hwlmLiteral> &lits,
                   const CompileContext &cc) {
@@ -117,15 +126,27 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
 
     return true;
 }
+#endif
 
 bytecode_ptr<HWLM> hwlmBuild(const HWLMProto &proto, const CompileContext &cc,
                              UNUSED hwlm_group_t expected_groups) {
     size_t engSize = 0;
     shared_ptr<void> eng;
 
+#if defined(HS_TEDDY_ONLY)
+    DEBUG_PRINTF("building table with %zu strings\n", proto.lits.size());
+#else
     const auto &lits = proto.lits;
     DEBUG_PRINTF("building table with %zu strings\n", lits.size());
+#endif
 
+#if defined(HS_TEDDY_ONLY)
+    auto teddy = teddyBuildTable(proto, cc.grey);
+    if (teddy) {
+        engSize = teddy.size();
+        eng = move(teddy);
+    }
+#else
     if (proto.engType == HWLM_ENGINE_NOOD) {
         DEBUG_PRINTF("build noodle table\n");
         const hwlmLiteral &lit = lits.front();
@@ -142,6 +163,7 @@ bytecode_ptr<HWLM> hwlmBuild(const HWLMProto &proto, const CompileContext &cc,
         }
         eng = move(fdr);
     }
+#endif
 
     if (!eng) {
         return nullptr;
@@ -166,6 +188,12 @@ hwlmBuildProto(vector<hwlmLiteral> &lits, bool make_small,
                const CompileContext &cc) {
     assert(!lits.empty());
     dumpLits(lits);
+
+#if defined(HS_TEDDY_ONLY)
+    if (lits.size() > TEDDY_ONLY_MAX_DECOMPOSED_EXPRESSIONS) {
+        throw CompileError("Teddy-only build supports at most 96 decomposed expressions.");
+    }
+#endif
 
     // Check that we haven't exceeded the maximum number of literals.
     if (lits.size() > cc.grey.limitLiteralCount) {
@@ -199,6 +227,13 @@ hwlmBuildProto(vector<hwlmLiteral> &lits, bool make_small,
 
     assert(everyoneHasGroups(lits));
 
+#if defined(HS_TEDDY_ONLY)
+    proto = teddyBuildProtoHinted(HWLM_ENGINE_FDR, lits, make_small,
+                                  HINT_INVALID, cc.target_info);
+    if (!proto) {
+        throw CompileError("Unable to generate Teddy-only literal matcher proto.");
+    }
+#else
     if (isNoodleable(lits, cc)) {
         DEBUG_PRINTF("build noodle table\n");
         proto = ue2::make_unique<HWLMProto>(HWLM_ENGINE_NOOD, lits);
@@ -210,6 +245,7 @@ hwlmBuildProto(vector<hwlmLiteral> &lits, bool make_small,
             return nullptr;
         }
     }
+#endif
 
     return proto;
 }
@@ -217,6 +253,11 @@ hwlmBuildProto(vector<hwlmLiteral> &lits, bool make_small,
 size_t hwlmSize(const HWLM *h) {
     size_t engSize = 0;
 
+#if defined(HS_TEDDY_ONLY)
+    if (h->type == HWLM_ENGINE_FDR) {
+        engSize = ((const FDR *)HWLM_C_DATA(h))->size;
+    }
+#else
     switch (h->type) {
     case HWLM_ENGINE_NOOD:
         engSize = noodSize((const noodTable *)HWLM_C_DATA(h));
@@ -225,6 +266,7 @@ size_t hwlmSize(const HWLM *h) {
         engSize = fdrSize((const FDR *)HWLM_C_DATA(h));
         break;
     }
+#endif
 
     if (!engSize) {
         return 0;

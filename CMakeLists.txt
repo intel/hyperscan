@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8.11)
+cmake_minimum_required (VERSION 3.5)
 project (hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 5)
@@ -76,14 +76,10 @@ include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 include (${CMAKE_MODULE_PATH}/boost.cmake)
 
 # -- make this work? set(python_ADDITIONAL_VERSIONS 2.7 2.6)
-find_package(PythonInterp)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_program(RAGEL ragel)
 
-if(PYTHONINTERP_FOUND)
-    set(PYTHON ${PYTHON_EXECUTABLE})
-else()
-    message(FATAL_ERROR "No python interpreter found")
-endif()
+set(PYTHON ${Python3_EXECUTABLE})
 
 # allow for reproducible builds - python for portability
 if (DEFINED ENV{SOURCE_DATE_EPOCH})
@@ -117,6 +113,18 @@ endif()
 
 option(BUILD_SHARED_LIBS "Build shared libs instead of static" OFF)
 option(BUILD_STATIC_AND_SHARED "Build shared libs as well as static" OFF)
+option(TEDDY_ONLY "Build a Teddy-only library and skip the other literal engines" OFF)
+
+if (TEDDY_ONLY)
+    add_definitions(-DHS_TEDDY_ONLY)
+    set(HS_LIB_BASENAME hs_teddy)
+    set(HS_PC_NAME libhs_teddy)
+    set(HS_PKGCONFIG_FILE libhs_teddy.pc)
+else()
+    set(HS_LIB_BASENAME hs)
+    set(HS_PC_NAME libhs)
+    set(HS_PKGCONFIG_FILE libhs.pc)
+endif()
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         message(STATUS "Building shared libraries")
@@ -505,12 +513,16 @@ if (CORRECT_PCRE_VERSION AND PCRE_BUILD_SOURCE AND BUILD_STATIC_LIBS)
     set(BUILD_CHIMERA TRUE)
 endif()
 
-add_subdirectory(unit)
+if (NOT TEDDY_ONLY)
+    add_subdirectory(unit)
+endif()
 if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
     add_subdirectory(tools)
 endif()
-if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)
-    add_subdirectory(chimera)
+if (NOT TEDDY_ONLY)
+    if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)
+        add_subdirectory(chimera)
+    endif()
 endif()
 endif()
 
@@ -528,8 +540,8 @@ if (NOT WIN32)
     endforeach()
     set(PRIVATE_LIBS "${PRIVATE_LIBS} -lcrypto")
 
-    configure_file(libhs.pc.in libhs.pc @ONLY) # only replace @ quoted vars
-    install(FILES ${CMAKE_BINARY_DIR}/libhs.pc
+    configure_file(libhs.pc.in ${HS_PKGCONFIG_FILE} @ONLY) # only replace @ quoted vars
+    install(FILES ${CMAKE_BINARY_DIR}/${HS_PKGCONFIG_FILE}
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
 endif()
 
@@ -558,12 +570,16 @@ if (CORRECT_PCRE_VERSION AND PCRE_BUILD_SOURCE AND BUILD_STATIC_LIBS)
     set(BUILD_CHIMERA TRUE)
 endif()
 
-add_subdirectory(unit)
+if (NOT TEDDY_ONLY)
+    add_subdirectory(unit)
+endif()
 if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
     add_subdirectory(tools)
 endif()
-if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)
-    add_subdirectory(chimera)
+if (NOT TEDDY_ONLY)
+    if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)
+        add_subdirectory(chimera)
+    endif()
 endif()
 endif()
 
@@ -744,6 +760,13 @@ set (hs_exec_SRCS
     src/database.c
     src/database.h
 )
+
+if (TEDDY_ONLY)
+    list(REMOVE_ITEM hs_exec_SRCS
+        src/hwlm/noodle_engine.c
+        src/hwlm/noodle_engine.h
+        src/hwlm/noodle_internal.h)
+endif()
 
 set (hs_exec_avx2_SRCS
     src/fdr/teddy_avx2.c
@@ -1133,6 +1156,17 @@ SET (hs_compile_SRCS
     src/util/verify_types.h
 )
 
+if (TEDDY_ONLY)
+    list(REMOVE_ITEM hs_compile_SRCS
+    src/fdr/fdr_compile.cpp
+    src/fdr/fdr_compile.h
+    src/fdr/fdr_engine_description.cpp
+    src/fdr/fdr_engine_description.h
+        src/hwlm/noodle_build.cpp
+        src/hwlm/noodle_build.h
+        src/hwlm/noodle_internal.h)
+endif()
+
 set(hs_dump_SRCS
     src/scratch_dump.cpp
     src/scratch_dump.h
@@ -1185,6 +1219,11 @@ if (DUMP_SUPPORT)
     set(hs_compile_SRCS ${hs_compile_SRCS} ${hs_dump_SRCS})
 endif()
 
+if (TEDDY_ONLY)
+    list(REMOVE_ITEM hs_dump_SRCS
+        src/fdr/fdr_dump.cpp)
+endif()
+
 # we group things by sublibraries, specifying shared and static and then
 # choose which ones to build
 
@@ -1212,6 +1251,7 @@ if (NOT FAT_RUNTIME)
             src/hs_valid_platform.c
             $<TARGET_OBJECTS:hs_exec>
             $<TARGET_OBJECTS:hs_compile>)
+        set_target_properties(hs PROPERTIES OUTPUT_NAME ${HS_LIB_BASENAME})
     endif (BUILD_STATIC_LIBS)
 
     if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
@@ -1290,6 +1330,7 @@ else (FAT_RUNTIME)
            $<TARGET_OBJECTS:hs_compile>
            $<TARGET_OBJECTS:hs_exec_common>
            ${RUNTIME_LIBS})
+       set_target_properties(hs PROPERTIES OUTPUT_NAME ${HS_LIB_BASENAME})
 
     endif (BUILD_STATIC_LIBS)
 
@@ -1421,7 +1462,7 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
     add_dependencies(hs_shared ragel_Parser)
     target_link_libraries(hs_shared OpenSSL::Crypto)
     set_target_properties(hs_shared PROPERTIES
-        OUTPUT_NAME hs
+        OUTPUT_NAME ${HS_LIB_BASENAME}
         VERSION ${LIB_VERSION}
         SOVERSION ${LIB_SOVERSION}
         MACOSX_RPATH ON)
