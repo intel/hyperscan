@@ -134,7 +134,7 @@ static
 unordered_map<NFAVertex, u32>
 getStateIndices(const NGHolder &h, const vector<NFAVertex> &ordering) {
     unordered_map<NFAVertex, u32> states;
-    for (const auto &v : vertices_range(h)) {
+    for (const auto v : vertices_range(h)) {
         states[v] = NO_STATE;
     }
 

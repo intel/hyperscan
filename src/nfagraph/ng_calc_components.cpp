@@ -198,7 +198,7 @@ vector<NFAEdge> findShellEdges(const NGHolder &g,
                                const flat_set<NFAVertex> &tail_shell) {
     vector<NFAEdge> shell_edges;
 
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         auto u = source(e, g);
         auto v = target(e, g);
 

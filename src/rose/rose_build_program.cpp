@@ -904,7 +904,7 @@ void makeRoleGroups(const RoseGraph &g, ProgramBuild &prog_build,
     // intersection of the groups set by our predecessors.
     assert(in_degree(v, g) > 0);
     rose_group already_on = ~rose_group{0};
-    for (const auto &u : inv_adjacent_vertices_range(v, g)) {
+    for (const auto u : inv_adjacent_vertices_range(v, g)) {
         already_on &= prog_build.vertex_group_map.at(u);
     }
 
@@ -1152,7 +1152,7 @@ static really_inline
 void nibUpdate(map<u32, u16> &nib, u32 hi_lo) {
     u16 hi = hi_lo >> 16;
     u16 lo = hi_lo & 0xffff;
-    for (const auto pairs : nib) {
+    for (const auto &pairs : nib) {
         u32 old = pairs.first;
         if ((old >> 16) == hi || (old & 0xffff) == lo) {
             if (!nib[old | hi_lo]) {
@@ -1958,7 +1958,7 @@ void makeRoleInfixTriggers(const RoseBuildImpl &build,
 
     vector<TriggerInfo> triggers;
 
-    for (const auto &e : out_edges_range(u, g)) {
+    for (const auto e : out_edges_range(u, g)) {
         RoseVertex v = target(e, g);
         if (!g[v].left) {
             continue;
@@ -2011,7 +2011,7 @@ bool onlyAtEod(const RoseBuildImpl &tbi, RoseVertex v) {
         return false;
     }
 
-    for (const auto &e : out_edges_range(v, g)) {
+    for (const auto e : out_edges_range(v, g)) {
         RoseVertex w = target(e, g);
         if (!g[w].eod_accept) {
             return false;
@@ -2049,7 +2049,7 @@ void makeRoleEagerEodReports(const RoseBuildImpl &build,
                          RoseProgram &program) {
     RoseProgram eod_program;
 
-    for (const auto &e : out_edges_range(v, build.g)) {
+    for (const auto e : out_edges_range(v, build.g)) {
         if (canEagerlyReportAtEod(build, e)) {
             RoseProgram block;
             makeRoleReports(build, leftfix_info, needs_catchup,

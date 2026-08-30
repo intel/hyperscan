@@ -389,7 +389,7 @@ void liftSinks(const AcyclicGraph &acyclic_g, vector<NFAVertex> &topoOrder) {
         NFAVertex s = *ri;
         DEBUG_PRINTF("handling sink %zu\n", acyclic_g[s].index);
         unordered_set<NFAVertex> parents;
-        for (const auto &e : in_edges_range(s, acyclic_g)) {
+        for (const auto e : in_edges_range(s, acyclic_g)) {
             parents.insert(NFAVertex(source(e, acyclic_g)));
         }
 

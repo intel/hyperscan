@@ -485,7 +485,7 @@ bool nfaStuckOn(const NGHolder &g) {
     set<u32> tops;
     set<u32> done_tops;
 
-    for (const auto &e : out_edges_range(g.start, g)) {
+    for (const auto e : out_edges_range(g.start, g)) {
         insert(&tops, g[e].tops);
         if (!g[target(e, g)].char_reach.all()) {
             continue;
@@ -736,7 +736,7 @@ void findInfixTriggers(const RoseBuildImpl &build,
 
         set<PredTopPair> &triggers = (*infixTriggers)[left_id(g[v].left)];
 
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
             if (build.isAnyStart(u)) {
                 continue;
@@ -1212,7 +1212,7 @@ unique_ptr<TamaInfo> constructTamaInfo(const RoseGraph &g,
             if (is_suffix) {
                 tops.insert(g[v].suffix.top);
             } else {
-                for (const auto &e : in_edges_range(v, g)) {
+                for (const auto e : in_edges_range(v, g)) {
                     tops.insert(g[e].rose_top);
                 }
             }
@@ -1235,7 +1235,7 @@ void updateTops(const RoseGraph &g, const TamaInfo &tamaInfo,
             if (is_suffix) {
                 tamaProto.add(n, g[v].index, g[v].suffix.top, out_top_remap);
             } else {
-                for (const auto &e : in_edges_range(v, g)) {
+                for (const auto e : in_edges_range(v, g)) {
                     tamaProto.add(n, g[v].index, g[e].rose_top, out_top_remap);
                 }
             }
@@ -2374,7 +2374,7 @@ void recordResources(RoseResources &resources, const RoseBuildImpl &build,
     resources.has_literals = !fragments.empty();
 
     const auto &g = build.g;
-    for (const auto &v : vertices_range(g)) {
+    for (const auto v : vertices_range(g)) {
         if (g[v].eod_accept) {
             resources.has_eod = true;
             break;
@@ -2607,7 +2607,7 @@ unordered_map<RoseVertex, u32> assignStateIndices(const RoseBuildImpl &build) {
         // We only need a state index if we have successors that are not
         // eagerly-reported EOD vertices.
         bool needs_state_index = false;
-        for (const auto &e : out_edges_range(v, g)) {
+        for (const auto e : out_edges_range(v, g)) {
             if (!canEagerlyReportAtEod(build, e)) {
                 needs_state_index = true;
                 break;
@@ -2768,7 +2768,7 @@ vector<vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
     vector<vector<RoseEdge>> lit_edge_map(build.literals.size());
 
     const auto &g = build.g;
-    for (const auto &v : vertices_range(g)) {
+    for (const auto v : vertices_range(g)) {
         for (const auto &lit_id : g[v].literals) {
             assert(lit_id < lit_edge_map.size());
             auto &edge_list = lit_edge_map.at(lit_id);
@@ -3266,7 +3266,7 @@ void addEodAnchorProgram(const RoseBuildImpl &build, const build_context &bc,
                      in_degree(v, g));
 
         vector<RoseEdge> edge_list;
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
             if (build.isInETable(u) != in_etable) {
                 DEBUG_PRINTF("pred %zu %s in etable\n", g[u].index,
@@ -3310,7 +3310,7 @@ void addEodEventProgram(const RoseBuildImpl &build, build_context &bc,
     // Collect all edges leading into EOD event literal vertices.
     vector<RoseEdge> edge_list;
     for (const auto &v : lit_info.vertices) {
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             edge_list.push_back(e);
         }
     }

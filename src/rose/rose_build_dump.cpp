@@ -441,7 +441,7 @@ void dumpRoseLiterals(const RoseBuildImpl &build,
             os << ", min_offset=" << g[v].min_offset;
             os << ", max_offset=" << g[v].max_offset << endl;
             // pred info
-            for (const auto &ie : in_edges_range(v, g)) {
+            for (const auto ie : in_edges_range(v, g)) {
                 const auto &u = source(ie, g);
                 os << "    Predecessor index=";
                 if (u == build.root) {

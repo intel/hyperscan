@@ -60,7 +60,7 @@ void all_vars(const GoughGraph &g, vector<GoughSSAVar *> *out) {
     for (auto v : vertices_range(g)) {
         push_back_all_raw(out, g[v].vars);
     }
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         push_back_all_raw(out, g[e].vars);
     }
 }
@@ -89,7 +89,7 @@ void fill_aux(const GoughGraph &g, GoughGraphAux *aux) {
             aux->reporters[var].insert(v);
         }
     }
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         for (const auto &var : g[e].vars) {
             aux->containing_e[var.get()] = e;
             DEBUG_PRINTF("%u is on edge %u->%u\n", var->slot,
@@ -217,7 +217,7 @@ void handle_pending_vertex(GoughVertex def_v, const GoughGraph &g,
         DEBUG_PRINTF("contains target vertex\n");
         return; /* we have reached def */
     }
-    for (const auto &e : in_edges_range(current, g)) {
+    for (const auto e : in_edges_range(current, g)) {
         handle_pending_edge(g, e, nullptr, pending_vertex, rv);
     }
 }
@@ -293,7 +293,7 @@ u32 initial_slots(const GoughGraph &g) {
     for (auto v : vertices_range(g)) {
         set_initial_slots(g[v].vars, &next_slot);
     }
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         set_initial_slots(g[e].vars, &next_slot);
     }
 
@@ -405,7 +405,7 @@ void find_dom_ordering(const GoughGraph &cfg, vector<GoughSSAVar *> *out) {
 
     for (auto it = g_order.rbegin(); it != g_order.rend(); ++it) {
         add_to_dom_ordering(cfg[*it].vars, out);
-        for (const auto &e : out_edges_range(*it, cfg)) {
+        for (const auto e : out_edges_range(*it, cfg)) {
             add_to_dom_ordering(cfg[e].vars, out);
         }
     }
@@ -444,7 +444,7 @@ void update_local_slots(GoughGraph &g, set<GoughSSAVar *> &locals,
     /* local variables only occur on edges (joins are never local) */
 
     u32 allocated_count = 0;
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         u32 next_slot = local_base;
         for (auto &var : g[e].vars) {
             if (contains(locals, var.get())) {

@@ -124,7 +124,7 @@ NFAVertex clone_vertex(NGHolder &g, NFAVertex v) {
 }
 
 void clone_out_edges(NGHolder &g, NFAVertex source, NFAVertex dest) {
-    for (const auto &e : out_edges_range(source, g)) {
+    for (const auto e : out_edges_range(source, g)) {
         NFAVertex t = target(e, g);
         if (edge(dest, t, g).second) {
             continue;
@@ -137,7 +137,7 @@ void clone_out_edges(NGHolder &g, NFAVertex source, NFAVertex dest) {
 }
 
 void clone_in_edges(NGHolder &g, NFAVertex s, NFAVertex dest) {
-    for (const auto &e : in_edges_range(s, g)) {
+    for (const auto e : in_edges_range(s, g)) {
         NFAVertex ss = source(e, g);
         assert(!edge(ss, dest, g).second);
         NFAEdge clone = add_edge(ss, dest, g);
@@ -362,7 +362,7 @@ void mustBeSetBefore_int(NFAVertex u, const NGHolder &g,
     set<NFAEdge> dead; // Edges leading to u or u's successors.
 
     for (auto v : inv_adjacent_vertices_range(u, g)) {
-        for (const auto &e : out_edges_range(v, g)) {
+        for (const auto e : out_edges_range(v, g)) {
             NFAVertex t = target(e, g);
             if (t == u || contains(s, t)) {
                 dead.insert(e);
@@ -415,7 +415,7 @@ void appendLiteral(NGHolder &h, const ue2_literal &s) {
         remove_edge(v, h.accept, h);
     }
 
-    for (const auto &c : s) {
+    for (const auto c : s) {
         NFAVertex v = add_vertex(h);
         h[v].char_reach = c;
         for (auto u : tail) {
@@ -432,14 +432,14 @@ void appendLiteral(NGHolder &h, const ue2_literal &s) {
 
 flat_set<u32> getTops(const NGHolder &h) {
     flat_set<u32> tops;
-    for (const auto &e : out_edges_range(h.start, h)) {
+    for (const auto e : out_edges_range(h.start, h)) {
         insert(&tops, h[e].tops);
     }
     return tops;
 }
 
 void setTops(NGHolder &h, u32 top) {
-    for (const auto &e : out_edges_range(h.start, h)) {
+    for (const auto e : out_edges_range(h.start, h)) {
         assert(h[e].tops.empty());
         if (target(e, h) == h.startDs) {
             continue;
@@ -616,21 +616,21 @@ void reverseHolder(const NGHolder &g_in, NGHolder &g) {
     NFAVertex acceptEod = vertexMap[g_in.start];
 
     // Successors of starts.
-    for (const auto &e : out_edges_range(start, g)) {
+    for (const auto e : out_edges_range(start, g)) {
         NFAVertex v = target(e, g);
         add_edge(g.start, v, g[e], g);
     }
-    for (const auto &e : out_edges_range(startDs, g)) {
+    for (const auto e : out_edges_range(startDs, g)) {
         NFAVertex v = target(e, g);
         add_edge(g.startDs, v, g[e], g);
     }
 
     // Predecessors of accepts.
-    for (const auto &e : in_edges_range(accept, g)) {
+    for (const auto e : in_edges_range(accept, g)) {
         NFAVertex u = source(e, g);
         add_edge(u, g.accept, g[e], g);
     }
-    for (const auto &e : in_edges_range(acceptEod, g)) {
+    for (const auto e : in_edges_range(acceptEod, g)) {
         NFAVertex u = source(e, g);
         add_edge(u, g.acceptEod, g[e], g);
     }
@@ -770,13 +770,13 @@ bool allMatchStatesHaveReports(const NGHolder &g) {
 
 bool isCorrectlyTopped(const NGHolder &g) {
     if (is_triggered(g)) {
-        for (const auto &e : out_edges_range(g.start, g)) {
+        for (const auto e : out_edges_range(g.start, g)) {
             if (g[e].tops.empty() != (target(e, g) == g.startDs)) {
                 return false;
             }
         }
     } else {
-        for (const auto &e : out_edges_range(g.start, g)) {
+        for (const auto e : out_edges_range(g.start, g)) {
             if (!g[e].tops.empty()) {
                 return false;
             }

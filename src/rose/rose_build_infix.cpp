@@ -150,7 +150,7 @@ u32 findMaxLiteralMatches(const NGHolder &h, const set<ue2_literal> &lits) {
     // The set of all edges in the graph is used for existence checks in
     // contractVertex.
     EdgeCache all_edges;
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         all_edges.emplace(source(e, g), target(e, g));
     }
 

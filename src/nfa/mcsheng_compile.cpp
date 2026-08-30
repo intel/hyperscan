@@ -549,7 +549,7 @@ dstate_id_t find_sheng_states(dfa_info &info,
         /* get an estimate of stickness of the cyclic: assume any edges from
          * states with larger state ids are back edges */
         CharReach est_back_reach;
-        for (const auto &u : inv_adjacent_vertices_range(v, g)) {
+        for (const auto u : inv_adjacent_vertices_range(v, g)) {
             if (g[u].index < g[v].index) {
                 continue;
             }
@@ -587,7 +587,7 @@ dstate_id_t find_sheng_states(dfa_info &info,
         }
 
         sheng_states.insert(v);
-        for (const auto &t : adjacent_vertices_range(v, g)) {
+        for (const auto t : adjacent_vertices_range(v, g)) {
             if (!contains(considered, g[t].index)) {
                 to_consider.push_back(t);
             }

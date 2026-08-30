@@ -99,7 +99,7 @@ void dumpPreRoseGraph(const RoseInGraph &ig, const Grey &grey,
 
     map<NGHolder *, size_t> graph_ids;
 
-    for (const auto &e : edges_range(ig)) {
+    for (const auto e : edges_range(ig)) {
         u32 u = i_map[source(e, ig)];
         u32 v = i_map[target(e, ig)];
         fprintf(f, "%u -> %u [label=\"", u, v);

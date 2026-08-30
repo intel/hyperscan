@@ -329,7 +329,7 @@ void SmallWriteBuildImpl::add(const NGHolder &g, const ExpressionInfo &expr) {
 static
 bool add_to_trie(const ue2_literal &literal, ReportID report, LitTrie &trie) {
     auto u = trie.root;
-    for (const auto &c : literal) {
+    for (const auto c : literal) {
         auto next = LitTrie::null_vertex();
         for (auto v : adjacent_vertices_range(u, trie)) {
             if (trie[v].c == (u8)c.c) {

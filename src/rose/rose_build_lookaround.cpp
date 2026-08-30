@@ -82,7 +82,7 @@ void getForwardReach(const NGHolder &g, u32 top, map<s32, CharReach> &look) {
     flat_set<NFAVertex> curr, next;
 
     // Consider only successors of start with the required top.
-    for (const auto &e : out_edges_range(g.start, g)) {
+    for (const auto e : out_edges_range(g.start, g)) {
         NFAVertex v = target(e, g);
         if (v == g.startDs) {
             continue;
@@ -273,7 +273,7 @@ void findForwardReach(const RoseGraph &g, const RoseVertex v,
     // Non-leaf vertices can pick up a mask per successor prefix rose
     // engine.
     vector<map<s32, CharReach>> rose_look;
-    for (const auto &e : out_edges_range(v, g)) {
+    for (const auto e : out_edges_range(v, g)) {
         RoseVertex t = target(e, g);
         if (!g[t].left) {
             DEBUG_PRINTF("successor %zu has no leftfix\n", g[t].index);
@@ -476,7 +476,7 @@ vector<LookProto> findLiteralReach(const rose_literal_id &lit) {
     look.reserve(lit.s.length());
 
     s32 i = 0 - lit.s.length() - lit.delay;
-    for (const auto &c : lit.s) {
+    for (const auto c : lit.s) {
         look.emplace_back(i, c);
         i++;
     }

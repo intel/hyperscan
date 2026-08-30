@@ -424,7 +424,7 @@ void makeTopStates(NGHolder &g, map<u32, set<NFAVertex>> &tops_out,
 
     map<u32, flat_set<NFAVertex>> top_succs;
     map<NFAVertex, flat_set<u32>> succ_tops;
-    for (const auto &e : out_edges_range(g.start, g)) {
+    for (const auto e : out_edges_range(g.start, g)) {
         NFAVertex v = target(e, g);
         for (u32 t : g[e].tops) {
             top_succs[t].insert(v);
@@ -510,7 +510,7 @@ set<NFAVertex> findZombies(const NGHolder &h,
     ok:;
     }
 
-    for (const auto &v : inv_adjacent_vertices_range(h.accept, h)) {
+    for (const auto v : inv_adjacent_vertices_range(h.accept, h)) {
         if (state_ids.at(v) != NO_STATE) {
             zombies.insert(v);
         }
@@ -610,7 +610,7 @@ prepareGraph(const NGHolder &h_in, const ReportManager *rm,
 
 static
 void remapReportsToPrograms(NGHolder &h, const ReportManager &rm) {
-    for (const auto &v : vertices_range(h)) {
+    for (const auto v : vertices_range(h)) {
         auto &reports = h[v].reports;
         if (reports.empty()) {
             continue;

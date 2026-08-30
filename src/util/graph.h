@@ -138,7 +138,7 @@ void find_unreachable(const Graph &g, const SourceCont &sources, OutCont *out) {
 
     find_reachable(g, sources, &reachable);
 
-    for (const auto &v : vertices_range(g)) {
+    for (const auto v : vertices_range(g)) {
         if (!contains(reachable, v)) {
             out->insert(v);
         }
@@ -186,7 +186,7 @@ bool has_parallel_edge(const Graph &g) {
     using vertex_descriptor = typename Graph::vertex_descriptor;
     ue2_unordered_set<std::pair<vertex_descriptor, vertex_descriptor>> seen;
 
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         auto u = source(e, g);
         auto v = target(e, g);
         if (!seen.emplace(u, v).second) {
@@ -304,7 +304,7 @@ template <class Graph>
 bool hasCorrectlyNumberedEdges(const Graph &g) {
     auto count = num_edges(g);
     std::vector<bool> ids(count, false);
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         auto id = g[e].index;
         if (id >= count || ids[id]) {
             return false; // duplicate

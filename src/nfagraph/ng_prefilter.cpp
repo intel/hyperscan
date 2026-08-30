@@ -215,7 +215,7 @@ map<u32, RegionInfo> findRegionInfo(const NGHolder &h,
 
 static
 void copyInEdges(NGHolder &g, NFAVertex from, NFAVertex to) {
-    for (const auto &e : in_edges_range(from, g)) {
+    for (const auto e : in_edges_range(from, g)) {
         NFAVertex u = source(e, g);
         add_edge_if_not_present(u, to, g[e], g);
     }
@@ -223,7 +223,7 @@ void copyInEdges(NGHolder &g, NFAVertex from, NFAVertex to) {
 
 static
 void copyOutEdges(NGHolder &g, NFAVertex from, NFAVertex to) {
-    for (const auto &e : out_edges_range(from, g)) {
+    for (const auto e : out_edges_range(from, g)) {
         NFAVertex t = target(e, g);
         add_edge_if_not_present(to, t, g[e], g);
 

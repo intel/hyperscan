@@ -179,7 +179,7 @@ RoseVertex duplicate(RoseBuildImpl *build, RoseVertex v) {
         build->literal_info[lit_id].vertices.insert(w);
     }
 
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         RoseVertex s = source(e, g);
         add_edge(s, w, g[e], g);
         DEBUG_PRINTF("added edge (%zu,%zu)\n", g[s].index, g[w].index);
@@ -600,7 +600,7 @@ void doRoseLiteralVertex(RoseBuildImpl *tbi, bool use_eod_table,
 
         /* need to check if putting iv into the anchored table would create
          * any bad_overlap relationships with its successor literals */
-        for (const auto &e : out_edges_range(iv, ig)) {
+        for (const auto e : out_edges_range(iv, ig)) {
             RoseInVertex t = target(e, ig);
             u32 overlap = findRoseAnchorFloatingOverlap(ig[e], ig[t]);
             DEBUG_PRINTF("found overlap of %u\n", overlap);
@@ -650,7 +650,7 @@ unique_ptr<NGHolder> makeRoseEodPrefix(const NGHolder &h, RoseBuildImpl &build,
 
     // Move acceptEod edges over to accept.
     vector<NFAEdge> dead;
-    for (const auto &e : in_edges_range(g.acceptEod, g)) {
+    for (const auto e : in_edges_range(g.acceptEod, g)) {
         NFAVertex u = source(e, g);
         if (u == g.accept) {
             continue;
@@ -834,7 +834,7 @@ bool suitableForEod(const RoseInGraph &ig, vector<RoseInVertex> topo,
 
         if (ig[v].type == RIV_ACCEPT) {
             DEBUG_PRINTF("[ACCEPT]\n");
-            for (const auto &e : in_edges_range(v, ig)) {
+            for (const auto e : in_edges_range(v, ig)) {
                 if (!ig[e].graph || !can_only_match_at_eod(*ig[e].graph)) {
                     DEBUG_PRINTF("floating accept\n");
                     return false;
@@ -863,7 +863,7 @@ bool suitableForEod(const RoseInGraph &ig, vector<RoseInVertex> topo,
             return false;
         }
 
-        for (const auto &e : out_edges_range(v, ig)) {
+        for (const auto e : out_edges_range(v, ig)) {
             RoseInVertex t = target(e, ig);
 
             assert(contains(max_depth_from_eod, t));
@@ -976,7 +976,7 @@ void populateRoseGraph(RoseBuildImpl *tbi, RoseBuildData &bd) {
         }
 
         vector<pair<RoseVertex, RoseInEdge> > parents;
-        for (const auto &e : in_edges_range(iv, ig)) {
+        for (const auto e : in_edges_range(iv, ig)) {
             RoseInVertex u = source(e, ig);
             assert(contains(vertex_map, u));
             const vector<RoseVertex> &images = vertex_map[u];
@@ -1058,7 +1058,7 @@ static
 bool predsAreDelaySensitive(const RoseInGraph &ig, RoseInVertex v) {
     assert(in_degree(v, ig));
 
-    for (const auto &e : in_edges_range(v, ig)) {
+    for (const auto e : in_edges_range(v, ig)) {
         if (ig[e].graph || ig[e].haig) {
             DEBUG_PRINTF("edge graph\n");
             return true;
@@ -1126,7 +1126,7 @@ u32 findMaxSafeDelay(const RoseInGraph &ig, RoseInVertex u, RoseInVertex v) {
     DEBUG_PRINTF("max safe delay for this edge: %zu\n", max_delay);
 
     // Now consider the predecessors of u.
-    for (const auto &e : in_edges_range(u, ig)) {
+    for (const auto e : in_edges_range(u, ig)) {
         RoseInVertex w = source(e, ig);
         if (ig[w].type == RIV_START) {
             continue;
@@ -1342,7 +1342,7 @@ void transformAnchoredLiteralOverlap(RoseInGraph &ig, RoseBuildData &bd,
         return;
     }
 
-    for (const auto &e : edges_range(ig)) {
+    for (const auto e : edges_range(ig)) {
         const RoseInVertex u = source(e, ig);
         const RoseInVertex v = target(e, ig);
 
@@ -1494,7 +1494,7 @@ void transformSuffixDelay(RoseInGraph &ig, const CompileContext &cc) {
 #ifndef NDEBUG
 static
 bool validateKinds(const RoseInGraph &g) {
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         if (g[e].graph && g[e].graph->kind != whatRoseIsThis(g, e)) {
             return false;
         }
@@ -1528,7 +1528,7 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter) {
 
     insertion_ordered_map<NGHolder *, vector<RoseInEdge>> graphs;
 
-    for (const auto &e : edges_range(in)) {
+    for (const auto e : edges_range(in)) {
         if (!in[e].graph) {
             assert(!in[e].dfa);
             assert(!in[e].haig);
@@ -1589,7 +1589,7 @@ bool RoseBuildImpl::addSombeRose(const RoseInGraph &ig) {
 
     RoseBuildData bd(ig, true);
 
-    for (const auto &e : edges_range(ig)) {
+    for (const auto e : edges_range(ig)) {
         if (!ig[e].graph) {
             continue; // no graph
         }
@@ -1614,7 +1614,7 @@ bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
 
     vector<NGHolder *> graphs;
 
-    for (const auto &e : edges_range(ig)) {
+    for (const auto e : edges_range(ig)) {
         if (!ig[e].graph) {
             continue; // no graph
         }

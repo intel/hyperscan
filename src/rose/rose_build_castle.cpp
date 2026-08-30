@@ -328,7 +328,7 @@ void remapCastleTops(RoseBuildImpl &tbi) {
 
         // Update the tops on the edges leading into vertices in v.
         for (auto v : verts) {
-            for (const auto &e : in_edges_range(v, g)) {
+            for (const auto e : in_edges_range(v, g)) {
                 g[e].rose_top = top_map.at(g[e].rose_top);
             }
         }
@@ -372,7 +372,7 @@ bool triggerKillsRoseCastle(const RoseBuildImpl &tbi, const left_id &left,
         DEBUG_PRINTF("s=%s, castle reach=%s\n", dumpString(s).c_str(),
                       describeClass(cr).c_str());
 
-        for (const auto &s_cr : s) {
+        for (const auto s_cr : s) {
             if (!overlaps(cr, s_cr)) {
                 DEBUG_PRINTF("reach %s kills castle\n",
                              describeClass(s_cr).c_str());

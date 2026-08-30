@@ -768,7 +768,7 @@ void findCyclicDom(NGHolder &g, vector<bool> &cyclic,
 
             // iff all paths through in-edge e of v involve vertices whose
             // reachability is a subset of reach(dom), we can delete edge e.
-            for (const auto &e : in_edges_range(v, g)) {
+            for (const auto e : in_edges_range(v, g)) {
                 if (source(e, g) == dom) {
                     continue;
                 }
@@ -806,7 +806,7 @@ void findCyclicPostDom(NGHolder &g, vector<bool> &cyclic,
 
             // iff all paths through in-edge e of v involve vertices whose
             // reachability is a subset of reach(dom), we can delete edge e.
-            for (const auto &e : out_edges_range(v, g)) {
+            for (const auto e : out_edges_range(v, g)) {
                 if (target(e, g) == postdom) {
                     continue;
                 }

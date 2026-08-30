@@ -146,7 +146,7 @@ bool verify_neighbour(const GoughGraph &g, GoughVertex u,
                       const map<gough_edge_id, vector<gough_ins> > &blocks,
                       const set<GoughVertex> &succs,
                       const vector<gough_ins> &block_sl) {
-    for (const auto &e : out_edges_range(u, g)) {
+    for (const auto e : out_edges_range(u, g)) {
         if (!g[e].reach.any()) { /* ignore top edges */
             continue;
         }
@@ -172,7 +172,7 @@ static
 bool verify_neighbour_no_block(const GoughGraph &g, GoughVertex u,
                         const map<gough_edge_id, vector<gough_ins> > &blocks,
                         const set<GoughVertex> &succs) {
-    for (const auto &e : out_edges_range(u, g)) {
+    for (const auto e : out_edges_range(u, g)) {
         if (!g[e].reach.any()) { /* ignore top edges */
             continue;
         }
@@ -216,7 +216,7 @@ bool allow_two_byte_accel(const GoughGraph &g,
         const auto &block_sl = blocks.at(gough_edge_id(g, self_loop));
 
         set<GoughVertex> succs;
-        for (const auto &e : out_edges_range(v, g)) {
+        for (const auto e : out_edges_range(v, g)) {
             if (g[e].reach.none()) { /* ignore top edges */
                 continue;
             }
@@ -237,7 +237,7 @@ bool allow_two_byte_accel(const GoughGraph &g,
     } else {
         DEBUG_PRINTF("no edge plan on self loop\n");
         set<GoughVertex> succs;
-        for (const auto &e : out_edges_range(v, g)) {
+        for (const auto e : out_edges_range(v, g)) {
             if (g[e].reach.none()) { /* ignore top edges */
                 continue;
             }

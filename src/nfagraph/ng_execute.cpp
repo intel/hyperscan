@@ -97,7 +97,7 @@ void filter_by_reach(const vector<StateInfo> &info, dynamic_bitset<> *states,
     }
 }
 
-template<typename inputT>
+template<typename inputT, typename elementT>
 static
 void execute_graph_i(const NGHolder &g, const vector<StateInfo> &info,
                      const inputT &input, dynamic_bitset<> *states,
@@ -106,7 +106,7 @@ void execute_graph_i(const NGHolder &g, const vector<StateInfo> &info,
     dynamic_bitset<> next(curr.size());
     DEBUG_PRINTF("%zu states in\n", states->count());
 
-    for (const auto &e : input) {
+    for (elementT e : input) {
         DEBUG_PRINTF("processing %s\n", describeClass(e).c_str());
         step(g, info, curr, &next);
         if (kill_sds) {
@@ -165,7 +165,7 @@ flat_set<NFAVertex> execute_graph(const NGHolder &g, const ue2_literal &input,
     auto info = makeInfoTable(g);
     auto work_states = makeStateBitset(g, initial_states);
 
-    execute_graph_i(g, info, input, &work_states, kill_sds);
+    execute_graph_i<ue2_literal, const ue2_literal::elem>(g, info, input, &work_states, kill_sds);
 
     return getVertices(work_states, info);
 }
@@ -178,7 +178,7 @@ flat_set<NFAVertex> execute_graph(const NGHolder &g,
     auto info = makeInfoTable(g);
     auto work_states = makeStateBitset(g, initial_states);
 
-    execute_graph_i(g, info, input, &work_states, false);
+    execute_graph_i<vector<CharReach>, const CharReach&>(g, info, input, &work_states, false);
 
     return getVertices(work_states, info);
 }

@@ -94,7 +94,7 @@ static
 bool limited_explosion(const ue2_literal &s) {
     u32 nc_count = 0;
 
-    for (const auto &e : s) {
+    for (const auto e : s) {
         if (e.nocase) {
             nc_count++;
         }
@@ -268,7 +268,7 @@ bool RoseBuildImpl::isPseudoStarOrFirstOnly(const RoseEdge &e) const {
 }
 
 bool RoseBuildImpl::hasOnlyPseudoStarInEdges(RoseVertex v) const {
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         if (!isPseudoStar(e)) {
             return false;
         }
@@ -369,7 +369,7 @@ RoseRoleHistory findHistoryScheme(const RoseBuildImpl &tbi, const RoseEdge &e) {
 
 static
 void assignHistories(RoseBuildImpl &tbi) {
-    for (const auto &e : edges_range(tbi.g)) {
+    for (const auto e : edges_range(tbi.g)) {
         if (tbi.g[e].history == ROSE_ROLE_HISTORY_INVALID) {
             tbi.g[e].history = findHistoryScheme(tbi, e);
         }
@@ -622,7 +622,7 @@ bool promoteEodToAnchored(RoseBuildImpl &tbi, const vector<u32> &eodLiterals) {
         auto &eod_verts = tbi.literal_info[eod_id].vertices;
 
         for (auto v : eod_verts) {
-            for (const auto &e : in_edges_range(v, tbi.g)) {
+            for (const auto e : in_edges_range(v, tbi.g)) {
                 assert(tbi.g[e].maxBound != ROSE_BOUND_INF);
                 tbi.g[e].minBound += lit.s.length();
                 tbi.g[e].maxBound += lit.s.length();
@@ -1011,7 +1011,7 @@ void packInfixTops(NGHolder &h, RoseGraph &g,
     for (auto v : verts) {
         assert(g[v].left.graph.get() == &h);
 
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             u32 top = g[e].rose_top;
             used_tops.insert(top);
         }
@@ -1026,13 +1026,13 @@ void packInfixTops(NGHolder &h, RoseGraph &g,
     for (auto v : verts) {
         assert(g[v].left.graph.get() == &h);
 
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             g[e].rose_top = top_mapping.at(g[e].rose_top);
         }
     }
 
     vector<NFAEdge> dead;
-    for (const auto &e : out_edges_range(h.start, h)) {
+    for (const auto e : out_edges_range(h.start, h)) {
         NFAVertex v = target(e, h);
         if (v == h.startDs) {
             continue; // stylised edge, leave it alone.
@@ -1157,7 +1157,7 @@ void findTopTriggerCancels(RoseBuildImpl &build) {
         set<u32> pred_lit_ids;
 
         for (auto v : succs) {
-            for (const auto &e : in_edges_range(v, build.g)) {
+            for (const auto e : in_edges_range(v, build.g)) {
                 RoseVertex u = source(e, build.g);
                 tops_seen.insert(build.g[e].rose_top);
                 insert(&pred_lit_ids, build.g[u].literals);
@@ -1620,7 +1620,7 @@ void addAnchoredSmallBlockLiterals(RoseBuildImpl &tbi) {
 #ifndef NDEBUG
 static
 bool historiesAreValid(const RoseGraph &g) {
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         if (g[e].history == ROSE_ROLE_HISTORY_INVALID) {
             DEBUG_PRINTF("edge [%zu,%zu] has invalid history\n",
                          g[source(e, g)].index, g[target(e, g)].index);

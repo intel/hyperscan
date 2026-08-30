@@ -177,7 +177,7 @@ void reformAnchoredRepeatsComponent(NGHolder &g,
     bool selfLoop = false;
     bool bustOut = false;
 
-    for (const auto &e : out_edges_range(dotV, g)) {
+    for (const auto e : out_edges_range(dotV, g)) {
         NFAVertex t = target(e, g);
         if (t == dotV) {
             selfLoop = true;
@@ -280,7 +280,7 @@ void reformUnanchoredRepeatsComponent(NGHolder &g,
         bool selfLoop = false;
         bool bustOut = false;
 
-        for (const auto &e : out_edges_range(dotV, g)) {
+        for (const auto e : out_edges_range(dotV, g)) {
             NFAVertex t = target(e, g);
 
             if (t == dotV) {

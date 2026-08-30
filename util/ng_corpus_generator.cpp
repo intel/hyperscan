@@ -81,12 +81,12 @@ string pathToString(const NGHolder &g, const VertexPath &p) {
 /** True if this graph has no non-special successors of start or startDs. */
 static
 bool graph_is_empty(const NGHolder &g) {
-    for (const auto &v : adjacent_vertices_range(g.start, g)) {
+    for (const auto v : adjacent_vertices_range(g.start, g)) {
         if (!is_special(v, g)) {
             return false;
         }
     }
-    for (const auto &v : adjacent_vertices_range(g.start, g)) {
+    for (const auto v : adjacent_vertices_range(g.start, g)) {
         if (!is_special(v, g)) {
             return false;
         }
@@ -144,7 +144,7 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
     open.push_back(ue2::make_unique<VertexPath>(1, g.start));
 
     unordered_set<NFAVertex> one_way_in;
-    for (const auto &v : vertices_range(g)) {
+    for (const auto v : vertices_range(g)) {
         if (in_degree(v, g) <= 1) {
             one_way_in.insert(v);
         }

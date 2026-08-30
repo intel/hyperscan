@@ -92,7 +92,7 @@ static const CharReach CHARREACH_NONWORD_UCP_PRE(CHARREACH_NONWORD);
 static
 vector<NFAEdge> getAsserts(const NGHolder &g) {
     vector<NFAEdge> out;
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         if (g[e].assert_flags) {
             out.push_back(e);
         }
@@ -255,7 +255,7 @@ void splitVertex(ReportManager &rm, NGHolder &g, const ExpressionInfo &expr,
 static
 void resolveEdges(ReportManager &rm, NGHolder &g, const ExpressionInfo &expr,
                   set<NFAEdge> *dead) {
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         u32 flags = g[e].assert_flags;
         if (!flags) {
             continue;

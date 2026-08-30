@@ -611,7 +611,7 @@ bool isGroupSquasher(const RoseBuildImpl &build, const u32 id /* literal id */,
         }
 
         // Out-edges must have inf max bound, + no other shenanigans */
-        for (const auto &e : out_edges_range(v, g)) {
+        for (const auto e : out_edges_range(v, g)) {
             if (g[e].maxBound != ROSE_BOUND_INF) {
                 return false;
             }
@@ -650,7 +650,7 @@ bool isGroupSquasher(const RoseBuildImpl &build, const u32 id /* literal id */,
 
         // Out-edges must have inf max bound and not directly lead to another
         // vertex with this group, e.g. 'foobar.*foobar'.
-        for (const auto &e : out_edges_range(v, g)) {
+        for (const auto e : out_edges_range(v, g)) {
             if (g[e].maxBound != ROSE_BOUND_INF) {
                 return false;
             }
@@ -671,7 +671,7 @@ bool isGroupSquasher(const RoseBuildImpl &build, const u32 id /* literal id */,
         // In-edges must all be dot-stars with no overlap at all, as overlap
         // also causes history to be used.
         /* Different tables are already forbidden by previous checks */
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             if (!(g[e].minBound == 0 && g[e].maxBound == ROSE_BOUND_INF)) {
                 return false;
             }

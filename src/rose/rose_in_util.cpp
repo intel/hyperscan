@@ -98,7 +98,7 @@ unique_ptr<RoseInGraph> cloneRoseGraph(const RoseInGraph &ig) {
     unordered_map<const NGHolder *, shared_ptr<NGHolder>> graph_map;
     unordered_map<const raw_som_dfa *, shared_ptr<raw_som_dfa>> haig_map;
 
-    for (const auto &e : edges_range(ig)) {
+    for (const auto e : edges_range(ig)) {
         const RoseInEdgeProps &ep = ig[e];
         if (ep.graph && !contains(graph_map, ep.graph.get())) {
             graph_map[ep.graph.get()] = cloneHolder(*ep.graph);
@@ -133,7 +133,7 @@ void calcVertexOffsets(RoseInGraph &g) {
         u32 min_d = ROSE_BOUND_INF;
         u32 max_d = 0;
 
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             RoseInVertex u = source(e, g);
             u32 e_min = g[u].min_offset;
             u32 e_max = g[u].max_offset;
