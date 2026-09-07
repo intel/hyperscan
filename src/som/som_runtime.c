@@ -49,13 +49,35 @@
 #include "util/fatbit.h"
 #include "util/multibit.h"
 
+/*
+ * the `onmatch`/`somDistance` operands embedded in a
+ * REPORT_SOM_INT (or similar) Rose program instruction come straight from
+ * the serialized database. A forged database can set `onmatch` to any u32,
+ * which is otherwise used unchecked as an index into the fixed-size
+ * `som_store`/`som_store_valid` scratch arrays (sized by somLocationCount),
+ * producing an attacker-controlled heap out-of-bounds write. Bound every
+ * such slot against som_store_count before it is used.
+ */
+static really_inline
+char somLocInBounds(u32 som_store_count, u32 slot) {
+    if (unlikely(slot >= som_store_count)) {
+        DEBUG_PRINTF("forged/invalid som slot %u >= som_store_count %u, "
+                     "dropping operation\n", slot, som_store_count);
+        return 0;
+    }
+    return 1;
+}
+
 static really_inline
 void setSomLoc(struct fatbit *som_set_now, u64a *som_store, u32 som_store_count,
                const struct som_operation *ri, u64a to_offset) {
     /* validity handled by callers */
     assert(to_offset >= ri->aux.somDistance);
-    u64a start_offset = to_offset - ri->aux.somDistance;
     u32 som_loc = ri->onmatch;
+    if (!somLocInBounds(som_store_count, som_loc)) {
+        return;
+    }
+    u64a start_offset = to_offset - ri->aux.somDistance;
 
     /* resolve any races for matches at this point in favour of the earliest som
      */
@@ -161,10 +183,13 @@ void setSomLocRevNfa(struct hs_scratch *scratch, struct fatbit *som_set_now,
                      u64a *som_store, u32 som_store_count,
                      const struct som_operation *ri, u64a to_offset) {
     /* validity handled by callers */
+    u32 som_loc = ri->onmatch;
+    if (!somLocInBounds(som_store_count, som_loc)) {
+        return;
+    }
+
     u64a from_offset = 0;
     runRevNfa(scratch, ri, to_offset, &from_offset);
-
-    u32 som_loc = ri->onmatch;
 
     /* resolve any races for matches at this point in favour of the earliest som
      */
@@ -206,6 +231,13 @@ void handleSomInternal(struct hs_scratch *scratch,
         fatbit_clear(som_set_now);
         fatbit_clear(som_attempted_set);
         scratch->som_set_now_offset = to_offset;
+    }
+
+    /* every case below indexes scratch state with the operand
+     * `ri->onmatch`, which comes directly from the (potentially forged)
+     * serialized database. Reject it up front instead of trusting it. */
+    if (!somLocInBounds(som_store_count, ri->onmatch)) {
+        return;
     }
 
     switch (ri->type) {
@@ -288,6 +320,9 @@ void handleSomInternal(struct hs_scratch *scratch,
     case SOM_INTERNAL_LOC_COPY: {
         u32 slot_in = ri->aux.somDistance;
         u32 slot_out = ri->onmatch;
+        if (!somLocInBounds(som_store_count, slot_in)) {
+            return;
+        }
         DEBUG_PRINTF("SOM_INTERNAL_LOC_COPY S[%u] = S[%u]\n", slot_out,
                      slot_in);
         assert(mmbit_isset(som_store_valid, som_store_count, slot_in));
@@ -300,6 +335,9 @@ void handleSomInternal(struct hs_scratch *scratch,
     case SOM_INTERNAL_LOC_COPY_IF_WRITABLE: {
         u32 slot_in = ri->aux.somDistance;
         u32 slot_out = ri->onmatch;
+        if (!somLocInBounds(som_store_count, slot_in)) {
+            return;
+        }
         DEBUG_PRINTF("SOM_INTERNAL_LOC_COPY_IF_WRITABLE S[%u] = S[%u]\n",
                      slot_out, slot_in);
         assert(mmbit_isset(som_store_valid, som_store_count, slot_in));
@@ -381,10 +419,13 @@ u64a handleSomExternal(struct hs_scratch *scratch,
     case SOM_EXTERNAL_CALLBACK_STORED: {
         const u64a *som_store = scratch->som_store;
         u32 slot = ri->aux.somDistance;
+        const u32 som_store_count = rose->somLocationCount;
+        if (!somLocInBounds(som_store_count, slot)) {
+            return 0;
+        }
         DEBUG_PRINTF("SOM_EXTERNAL_CALLBACK_STORED: <- som_store[%u]=%llu\n",
                      slot, som_store[slot]);
 
-        UNUSED const u32 som_store_count = rose->somLocationCount;
         UNUSED const u8 *som_store_valid = (u8 *)ci->state
             + rose->stateOffsets.somValid;
 
@@ -433,6 +474,12 @@ void setSomFromSomAware(struct hs_scratch *scratch,
         fatbit_clear(som_set_now);
         fatbit_clear(som_attempted_set);
         scratch->som_set_now_offset = to_offset;
+    }
+
+    /* bound the forged-database-controlled `onmatch` operand
+     * before it indexes scratch state. */
+    if (!somLocInBounds(som_store_count, ri->onmatch)) {
+        return;
     }
 
     if (ri->type == SOM_INTERNAL_LOC_SET_FROM) {
