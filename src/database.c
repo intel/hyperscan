@@ -1303,6 +1303,42 @@ hs_error_t validateStateLayout(const struct RoseEngine *rose) {
         return HS_INVALID;
     }
 
+    /* validate the destination `offset` field
+     * carried inside every scatter_unit_* entry of the state_init plan.
+     * db_validate_rose_offsets() (VALIDATE_SCATTER) only checks that the
+     * *table* of {offset,val} entries sits inside the rose bytecode; it does
+     * not check that each entry's `offset`, which scatter_<type>() in
+     * scatter_runtime.h uses to index directly into the per-stream state
+     * buffer (`state + item->offset`), stays within that buffer
+     * (stateOffsets.end). A forged database can leave the table itself
+     * in-bounds while setting an individual entry's offset arbitrarily,
+     * producing an attacker-controlled OOB write on every roseInitState()
+     * (i.e. every hs_open_stream() / block scan). By the time this function
+     * runs, VALIDATE_SCATTER has already confirmed each table is fully
+     * inside the bytecode, so walking it here is safe. */
+#define VALIDATE_SCATTER_DEST(type_suffix)                                    \
+    if (rose->state_init.s_##type_suffix##_offset) {                         \
+        const struct scatter_unit_##type_suffix *tbl =                       \
+            (const struct scatter_unit_##type_suffix *)                      \
+                ((const char *)rose + rose->state_init.s_##type_suffix##_offset); \
+        u32 cnt = rose->state_init.s_##type_suffix##_count;                   \
+        for (u32 i = 0; i < cnt; i++) {                                      \
+            if (unlikely(tbl[i].offset > end ||                              \
+                         sizeof(tbl[i].val) > end - tbl[i].offset)) {         \
+                DEBUG_PRINTF("state_init.s_" #type_suffix "[%u].offset OOB: " \
+                             "%u (end=%u)\n", i, tbl[i].offset, end);        \
+                return HS_INVALID;                                           \
+            }                                                                \
+        }                                                                    \
+    }
+
+    VALIDATE_SCATTER_DEST(u64a);
+    VALIDATE_SCATTER_DEST(u32);
+    VALIDATE_SCATTER_DEST(u16);
+    VALIDATE_SCATTER_DEST(u8);
+
+#undef VALIDATE_SCATTER_DEST
+
     /* Validate rolesWithStateCount: the role state multibit occupies
      * mmbit_size(rolesWithStateCount) bytes in stream state, placed after the
      * 1-byte status. It must fit before end. */

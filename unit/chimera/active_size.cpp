@@ -79,10 +79,10 @@ struct ch_bytecode_layout {
 // flag short-circuits ch_alloc_scratch() before it calls hs_alloc_scratch()
 // on the (unforged) inner Hyperscan database, isolating the activeSize vs.
 // patternCount sizing validation that this regression test targets.
-#define PSIRT_CHIMERA_FLAG_NO_MULTIMATCH 1u
+#define CHIMERA_FLAG_NO_MULTIMATCH 1u
 
 // coverity[RULE_OF_ZERO_THREE_FIVE:FALSE]
-TEST(PsirtActiveSize, AllocScratchRejectsForgedBytecode) {
+TEST(ActiveSize, AllocScratchRejectsForgedBytecode) {
     const u32 pattern_count = 8192;
     const u32 forged_active_size = 1; // far smaller than mmbit_size(8192)
 
@@ -118,7 +118,7 @@ TEST(PsirtActiveSize, AllocScratchRejectsForgedBytecode) {
     auto *db = reinterpret_cast<ch_bytecode_layout *>(
         static_cast<char *>(mem) + bytecode_offset);
     db->length = static_cast<u32>(bytecode_size);
-    db->flags = PSIRT_CHIMERA_FLAG_NO_MULTIMATCH;
+    db->flags = CHIMERA_FLAG_NO_MULTIMATCH;
     db->patternCount = pattern_count;
     db->activeSize = forged_active_size;
     db->databaseOffset = 0;
