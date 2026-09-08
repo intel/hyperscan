@@ -29,6 +29,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <cstdint>
 #include <string>
 
 enum class ScanMode { BLOCK, STREAMING, VECTORED };
@@ -45,8 +46,8 @@ extern bool useLiteralApi;
 
 /** Structure for the result of a single complete scan. */
 struct ResultEntry {
-    double seconds = 0;       //!< Time taken for scan.
-    unsigned int matches = 0; //!< Count of matches found.
+    double seconds = 0;        //!< Time taken for scan.
+    uint64_t matches = 0;      //!< Count of matches found (64-bit to avoid overflow).
 };
 
 struct SqlFailure {
