@@ -69,6 +69,7 @@ set(unit_hyperscan_SOURCES
     hyperscan/som_overflow.cpp
     hyperscan/som_onmatch_oob.cpp
     hyperscan/scatter_dest_oob.cpp
+    hyperscan/ekey_list_oob.cpp
     hyperscan/lbr_repeat_oob.cpp
     hyperscan/noodle_key_oob.cpp
     hyperscan/logical_combination_dos.cpp
