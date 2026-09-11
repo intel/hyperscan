@@ -57,6 +57,7 @@
 #include "hwlm/noodle_internal.h"
 #include "rose/rose_internal.h"
 #include "util/compile_error.h"
+#include "util/exhaust.h"
 #include "util/multibit_internal.h"
 #include "util/scatter.h"
 #include "util/unaligned.h"
@@ -880,6 +881,70 @@ hs_error_t db_validate_limex_reach_map(const struct RoseEngine *rose,
  *   6. tugMaskOffset stays within the engine blob.
  */
 
+/**
+ * validate every NfaInfo::ekeyListOffset (CWE-125).
+ *
+ * roseSuffixInfoIsExhausted() (rose/catchup.c) walks an INVALID_EKEY
+ * terminated u32 list at rose + ekeyListOffset with no bounds check, and
+ * feeds each entry to isExhausted(), which indexes the ekeyCount-sized
+ * exhaustion multibit under an assert only. A forged offset, or a list whose
+ * terminator lies outside the engine blob, reads past the allocation made by
+ * hs_deserialize_database(). Require the list to be aligned, in bounds,
+ * terminated inside the blob, and to hold only valid exhaustion keys.
+ */
+static
+hs_error_t db_validate_ekey_lists(const struct RoseEngine *rose,
+                                  u32 rose_size) {
+    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose_size) {
+        return HS_SUCCESS; /* no NFA engines - nothing to check */
+    }
+
+    const char *rose_base = (const char *)rose;
+    const struct NfaInfo *infos =
+        (const struct NfaInfo *)(rose_base + rose->nfaInfoOffset);
+
+    for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        u64a info_end = (u64a)rose->nfaInfoOffset +
+                        ((u64a)qi + 1) * sizeof(struct NfaInfo);
+        if (unlikely(info_end > rose_size)) {
+            DEBUG_PRINTF("NfaInfo[%u] out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        u32 list_off = infos[qi].ekeyListOffset;
+        if (!list_off) {
+            continue;
+        }
+
+        if (unlikely(list_off % alignof(u32) || list_off >= rose_size ||
+                     rose_size - list_off < sizeof(u32))) {
+            DEBUG_PRINTF("qi=%u: ekeyListOffset %u OOB (size=%u)\n", qi,
+                         list_off, rose_size);
+            return HS_INVALID;
+        }
+
+        const u32 *ekeys = (const u32 *)(rose_base + list_off);
+        u32 max_entries = (rose_size - list_off) / (u32)sizeof(u32);
+        u32 i = 0;
+        for (; i < max_entries; i++) {
+            if (ekeys[i] == INVALID_EKEY) {
+                break;
+            }
+            if (unlikely(ekeys[i] >= rose->ekeyCount)) {
+                DEBUG_PRINTF("qi=%u: ekey %u >= ekeyCount %u\n", qi, ekeys[i],
+                             rose->ekeyCount);
+                return HS_INVALID;
+            }
+        }
+        if (unlikely(i == max_entries)) {
+            DEBUG_PRINTF("qi=%u: ekey list has no terminator in blob\n", qi);
+            return HS_INVALID;
+        }
+    }
+
+    return HS_SUCCESS;
+}
+
 static
 hs_error_t db_validate_limex_repeats(const struct RoseEngine *rose,
                                      u32 rose_size) {
@@ -1303,6 +1368,61 @@ hs_error_t validateStateLayout(const struct RoseEngine *rose) {
         return HS_INVALID;
     }
 
+    /* Validate the state_init scatter plan: both the table itself and the
+     * destination `offset` carried by each scatter_unit_* entry.
+     *
+     * scatter_<type>() in scatter_runtime.h reads the table from
+     * rose + s_<type>_offset and writes each entry to `state + item->offset`,
+     * so a forged table location can read outside the Rose blob and a forged
+     * entry offset can write outside the per-stream state buffer.
+     *
+     * This function is reached both from db_validate_rose_offsets() at
+     * deserialize time and directly from hs_open_stream() / hs_scan_vector()
+     * (runtime.c), and the latter paths do not run the deserializer's
+     * VALIDATE_SCATTER. The table bounds are therefore re-checked here rather
+     * than assumed, so the traversal below is safe for every caller. */
+#define VALIDATE_SCATTER_PLAN(type_suffix)                                    \
+    if (rose->state_init.s_##type_suffix##_offset) {                          \
+        u32 tbl_off = rose->state_init.s_##type_suffix##_offset;              \
+        u32 cnt = rose->state_init.s_##type_suffix##_count;                   \
+        if (unlikely(!cnt)) {                                                 \
+            DEBUG_PRINTF("state_init.s_" #type_suffix                         \
+                         " has offset but zero count\n");                     \
+            return HS_INVALID;                                                \
+        }                                                                     \
+        if (unlikely(tbl_off % alignof(struct scatter_unit_##type_suffix))) { \
+            DEBUG_PRINTF("state_init.s_" #type_suffix                         \
+                         " misaligned offset=%u\n", tbl_off);                 \
+            return HS_INVALID;                                                \
+        }                                                                     \
+        u64a tbl_end = (u64a)tbl_off +                                        \
+            (u64a)cnt * sizeof(struct scatter_unit_##type_suffix);            \
+        if (unlikely(tbl_end > rose->size)) {                                 \
+            DEBUG_PRINTF("state_init.s_" #type_suffix " table OOB: "          \
+                         "offset=%u count=%u end=%llu > rose_size=%u\n",      \
+                         tbl_off, cnt, tbl_end, rose->size);                  \
+            return HS_INVALID;                                                \
+        }                                                                     \
+        const struct scatter_unit_##type_suffix *tbl =                        \
+            (const struct scatter_unit_##type_suffix *)                       \
+                ((const char *)rose + tbl_off);                               \
+        for (u32 i = 0; i < cnt; i++) {                                       \
+            if (unlikely(tbl[i].offset > end ||                               \
+                         sizeof(tbl[i].val) > end - tbl[i].offset)) {         \
+                DEBUG_PRINTF("state_init.s_" #type_suffix "[%u].offset OOB: " \
+                             "%u (end=%u)\n", i, tbl[i].offset, end);         \
+                return HS_INVALID;                                            \
+            }                                                                 \
+        }                                                                     \
+    }
+
+    VALIDATE_SCATTER_PLAN(u64a);
+    VALIDATE_SCATTER_PLAN(u32);
+    VALIDATE_SCATTER_PLAN(u16);
+    VALIDATE_SCATTER_PLAN(u8);
+
+#undef VALIDATE_SCATTER_PLAN
+
     /* Validate rolesWithStateCount: the role state multibit occupies
      * mmbit_size(rolesWithStateCount) bytes in stream state, placed after the
      * 1-byte status. It must fit before end. */
@@ -1682,6 +1802,12 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
     /* Validate LimEx NFA repeat metadata (CWE-787). */
     if (unlikely(db_validate_limex_repeats(rose, rose_size) != HS_SUCCESS)) {
         DEBUG_PRINTF("LimEx repeat validation failed\n");
+        return HS_INVALID;
+    }
+
+    /* Validate suffix exhaustion-key lists (CWE-125). */
+    if (unlikely(db_validate_ekey_lists(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("ekey list validation failed\n");
         return HS_INVALID;
     }
 
