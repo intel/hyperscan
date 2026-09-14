@@ -24,6 +24,9 @@ implied warranties, other than those that are expressly stated in the License.
  * memory may not be page-aligned or mmap-backed).
  */
 
+#ifndef _WIN32
+#define _GNU_SOURCE
+#endif
 #include "allocator.h"
 #include "database.h"
 #include "hs_common.h"

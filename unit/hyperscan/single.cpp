@@ -244,9 +244,8 @@ protected:
         size_t origSize;
         err = hs_database_size(db, &origSize);
         ASSERT_EQ(HS_SUCCESS, err);
-        hs_db_unprotect(db, origSize);
-        memset(db, 0xff, origSize);
-        hs_db_free(db, origSize);
+        hs_free_database(db);
+        db = nullptr;
 
         // relocate to 16 different alignments, ensuring that we can
         // deserialize from any string
