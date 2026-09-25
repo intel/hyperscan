@@ -73,6 +73,9 @@ set(unit_hyperscan_SOURCES
     hyperscan/lbr_repeat_oob.cpp
     hyperscan/noodle_key_oob.cpp
     hyperscan/logical_combination_dos.cpp
+    hyperscan/deserialization_rce.cpp
+    hyperscan/leftfix_lagindex_oob.cpp
+    hyperscan/mcclellan_oob.cpp
     )
 add_executable(unit-hyperscan ${unit_hyperscan_SOURCES})
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
