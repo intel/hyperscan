@@ -56,6 +56,8 @@
 #include "hwlm/hwlm_internal.h"
 #include "hwlm/noodle_internal.h"
 #include "rose/rose_internal.h"
+#include "rose/rose_program.h"
+#include "smallwrite/smallwrite_internal.h"
 #include "util/compile_error.h"
 #include "util/exhaust.h"
 #include "util/multibit_internal.h"
@@ -516,7 +518,7 @@ hs_error_t db_validate_mcclellan_like_engines(const struct RoseEngine *rose,
             return HS_INVALID;
         }
 
-        /* start_anchored at offset 6 (u16) */
+        /* start_anchored at offset 8 (u16) */
         u16 start_anchored = unaligned_load_u16((const u8 *)m_base + 8);
         if (unlikely(start_anchored >= state_count)) {
             DEBUG_PRINTF("mcclellan-like[%u] start_anchored %u >= state_count %u\n",
@@ -524,7 +526,7 @@ hs_error_t db_validate_mcclellan_like_engines(const struct RoseEngine *rose,
             return HS_INVALID;
         }
 
-        /* start_floating at offset 8 (u16) */
+        /* start_floating at offset 10 (u16) */
         u16 start_floating = unaligned_load_u16((const u8 *)m_base + 10);
         if (unlikely(start_floating >= state_count)) {
             DEBUG_PRINTF("mcclellan-like[%u] start_floating %u >= state_count %u\n",
@@ -532,31 +534,43 @@ hs_error_t db_validate_mcclellan_like_engines(const struct RoseEngine *rose,
             return HS_INVALID;
         }
 
-        /* alphaShift at offset 30 (u8)
-         * Must be <= 8 (max alphabet size 256). */
+        /* alphaShift at offset 32 (u8) — capped at 8 by getAlphaShift(). */
         u8 alphaShift = *(const u8 *)(m_base + 32);
         if (unlikely(alphaShift > 8)) {
             DEBUG_PRINTF("mcclellan-like[%u] alphaShift %u > 8\n", qi, alphaShift);
             return HS_INVALID;
         }
 
-        /* aux_offset at offset 10 (u32) */
+        /* aux_offset at offset 12 (u32) — relative to start of NFA. */
         u32 aux_offset = unaligned_load_u32((const u8 *)m_base + 12);
+        /* wide_limit at offset 30 (u16). Read early: aux entry count depends
+         * on it. For MCCLELLAN_NFA_16 with wide states the aux array has
+         * wide_limit entries (wide states have no aux slot); otherwise it has
+         * state_count entries (MCCLELLAN_NFA_8, GOUGH). See mcclellanCompile*
+         * in src/nfa/mcclellancompile.cpp. */
+        u16 wide_limit = unaligned_load_u16((const u8 *)m_base + 30);
+        if (unlikely(wide_limit > state_count)) {
+            DEBUG_PRINTF("mcclellan-like[%u] wide_limit %u > state_count %u\n",
+                         qi, wide_limit, state_count);
+            return HS_INVALID;
+        }
         if (aux_offset) {
-            u64a aux_end = (u64a)aux_offset + (u64a)state_count * 12; /* sizeof(mstate_aux) = 12 */
-            if (unlikely(aux_offset < sizeof(struct NFA) + 48 ||
+            u32 aux_entries = wide_limit ? wide_limit : state_count;
+            /* sizeof(struct mstate_aux) is 16 (u32+u32+u16+pad+u32). */
+            u64a aux_end = (u64a)aux_offset + (u64a)aux_entries * 16;
+            if (unlikely(aux_offset < sizeof(struct NFA) ||
                          aux_end > nfa_len)) {
                 DEBUG_PRINTF("mcclellan-like[%u] aux table out of bounds: "
-                             "offset=%u count=%u end=%llu > nfa_len=%u\n",
-                             qi, aux_offset, state_count, aux_end, nfa_len);
+                             "offset=%u entries=%u end=%llu > nfa_len=%u\n",
+                             qi, aux_offset, aux_entries, aux_end, nfa_len);
                 return HS_INVALID;
             }
         }
 
-        /* sherman_offset at offset 14 (u32) */
+        /* sherman_offset at offset 16 (u32) */
         u32 sherman_offset = unaligned_load_u32((const u8 *)m_base + 16);
         if (sherman_offset) {
-            if (unlikely(sherman_offset < sizeof(struct NFA) + 48 ||
+            if (unlikely(sherman_offset < sizeof(struct NFA) ||
                          sherman_offset > nfa_len)) {
                 DEBUG_PRINTF("mcclellan-like[%u] sherman_offset %u out of bounds (nfa_len=%u)\n",
                              qi, sherman_offset, nfa_len);
@@ -564,7 +578,7 @@ hs_error_t db_validate_mcclellan_like_engines(const struct RoseEngine *rose,
             }
         }
 
-        /* sherman_end at offset 18 (u32) */
+        /* sherman_end at offset 20 (u32) */
         u32 sherman_end = unaligned_load_u32((const u8 *)m_base + 20);
         if (sherman_end) {
             if (unlikely(sherman_end > nfa_len)) {
@@ -574,8 +588,8 @@ hs_error_t db_validate_mcclellan_like_engines(const struct RoseEngine *rose,
             }
         }
 
-        /* sherman_limit at offset 26 (u16)
-         * Must not exceed state_count. */
+        /* sherman_limit at offset 28 (u16) — lowest sherman state; must not
+         * exceed state_count. */
         u16 sherman_limit = unaligned_load_u16((const u8 *)m_base + 28);
         if (unlikely(sherman_limit > state_count)) {
             DEBUG_PRINTF("mcclellan-like[%u] sherman_limit %u > state_count %u\n",
@@ -583,10 +597,10 @@ hs_error_t db_validate_mcclellan_like_engines(const struct RoseEngine *rose,
             return HS_INVALID;
         }
 
-        /* wide_offset at offset 44 (u32) */
+        /* wide_offset at offset 304 (u32) — relative to start of NFA. */
         u32 wide_offset = unaligned_load_u32((const u8 *)m_base + 304);
         if (wide_offset) {
-            if (unlikely(wide_offset < sizeof(struct NFA) + 48 ||
+            if (unlikely(wide_offset < sizeof(struct NFA) ||
                          wide_offset > nfa_len)) {
                 DEBUG_PRINTF("mcclellan-like[%u] wide_offset %u out of bounds (nfa_len=%u)\n",
                              qi, wide_offset, nfa_len);
@@ -594,16 +608,7 @@ hs_error_t db_validate_mcclellan_like_engines(const struct RoseEngine *rose,
             }
         }
 
-        /* wide_limit at offset 28 (u16)
-         * Must not exceed state_count. */
-        u16 wide_limit = unaligned_load_u16((const u8 *)m_base + 30);
-        if (unlikely(wide_limit > state_count)) {
-            DEBUG_PRINTF("mcclellan-like[%u] wide_limit %u > state_count %u\n",
-                         qi, wide_limit, state_count);
-            return HS_INVALID;
-        }
-
-        /* accel_offset at offset 36 (u32) - relative to start of mcclellan */
+        /* accel_offset at offset 296 (u32) — relative to start of mcclellan. */
         u32 accel_offset = unaligned_load_u32((const u8 *)m_base + 296);
         if (accel_offset) {
             u64a abs_offset = (u64a)ni->nfaOffset +
@@ -754,6 +759,15 @@ hs_error_t db_validate_noodle_table(const struct RoseEngine *rose,
 
         const struct noodTable *nood =
             (const struct noodTable *)(base + off + nood_rel);
+
+        /* nood->id is the Rose program offset the interpreter
+         * jumps to on a literal match. Full program decoding happens in
+         * db_validate_rose_programs(); reject the trivially bad values here. */
+        if (unlikely(nood->id == 0 || nood->id >= rose_size)) {
+            DEBUG_PRINTF("noodTable id invalid: %u (rose_size=%u)\n",
+                         nood->id, rose_size);
+            return HS_INVALID;
+        }
 
         /* msk_len must be in [1, 8] */
         if (unlikely(nood->msk_len == 0 || nood->msk_len > 8)) {
@@ -1838,22 +1852,327 @@ hs_error_t db_validate_leftfix_lag_index(const struct RoseEngine *rose,
 }
 
 /**
- * Validate rose program instruction operands to prevent code injection
+ * \brief Validate SmallWriteEngine embedded NFA type.
  *
- * Even though offsets are validated, the bytecode instructions themselves
- * are not validated. An attacker with a forged HMAC could inject:
- * - SET_STATE with arbitrary index → unbounded OOB write via mmbit_set
- * - SPARSE_ITER with arbitrary offsets → arbitrary PC hijack
- * - noodTable.id repointing → arbitrary program execution
+ * SmallWriteEngine contains an embedded NFA structure immediately after its
+ * header. The NFA type must be one of the valid DFA types (MCCLELLAN_NFA_8 or
+ * MCCLELLAN_NFA_16). Other types would cause type confusion at runtime in
+ * runSmallWriteEngine(), which dispatches based on nfa->type:
+ *   - if (nfa->type == MCCLELLAN_NFA_8) -> nfaExecMcClellan8_B()
+ *   - else if (nfa->type == MCCLELLAN_NFA_16) -> nfaExecMcClellan16_B()
+ *   - else -> nfaExecSheng_B() (catch-all, type confusion if type is forged)
  *
- * This function validates all instruction operands and the noodTable.
+ * Validates:
+ * 1. SmallWriteEngine offset is within rose_size
+ * 2. Embedded NFA has valid type (MCCLELLAN_NFA_8 or MCCLELLAN_NFA_16)
+ * 3. NFA length is reasonable and entire NFA fits within rose_size
+ *
+ * \param rose RoseEngine structure
+ * \param rose_size Total size of rose engine blob
+ * \return HS_SUCCESS if valid, HS_INVALID if forged/invalid
  */
+static
+hs_error_t db_validate_smallwrite_nfa(const struct RoseEngine *rose,
+                                      u32 rose_size) {
+    // If no SmallWriteEngine, validation passes
+    if (!rose->smallWriteOffset) {
+        return HS_SUCCESS;
+    }
+
+    // Validate SmallWriteEngine offset is within bounds
+    if (unlikely(rose->smallWriteOffset >= rose_size)) {
+        DEBUG_PRINTF("smallWriteOffset out of bounds: %u >= %u\n",
+                     rose->smallWriteOffset, rose_size);
+        return HS_INVALID;
+    }
+
+    // Get pointer to SmallWriteEngine and its embedded NFA
+    const struct SmallWriteEngine *smwr =
+        (const struct SmallWriteEngine *)((const char *)rose +
+                                         rose->smallWriteOffset);
+    const struct NFA *nfa = (const struct NFA *)((const char *)smwr +
+                                                 sizeof(*smwr));
+
+    // Ensure NFA pointer is still within rose_size
+    u64a nfa_start = rose->smallWriteOffset + sizeof(*smwr);
+    if (unlikely(nfa_start + sizeof(struct NFA) > rose_size)) {
+        DEBUG_PRINTF("SmallWriteEngine NFA header out of bounds: "
+                     "offset=%u + sizeof(SmallWriteEngine)=%u "
+                     "+ sizeof(NFA)=%u > rose_size=%u\n",
+                     rose->smallWriteOffset, (u32)sizeof(*smwr),
+                     (u32)sizeof(struct NFA), rose_size);
+        return HS_INVALID;
+    }
+
+    // Validate NFA type is one of the valid DFA types for SmallWriteEngine
+    if (unlikely(nfa->type != MCCLELLAN_NFA_8 &&
+                 nfa->type != MCCLELLAN_NFA_16)) {
+        DEBUG_PRINTF("SmallWriteEngine NFA type invalid: %u "
+                     "(must be MCCLELLAN_NFA_8=%u or MCCLELLAN_NFA_16=%u)\n",
+                     nfa->type, MCCLELLAN_NFA_8, MCCLELLAN_NFA_16);
+        return HS_INVALID;
+    }
+
+    // Validate NFA length is reasonable (at least as large as NFA header)
+    if (unlikely(nfa->length < sizeof(struct NFA))) {
+        DEBUG_PRINTF("SmallWriteEngine NFA length too small: %u\n",
+                     nfa->length);
+        return HS_INVALID;
+    }
+
+    // Validate entire NFA fits within rose_size
+    u64a nfa_end = nfa_start + nfa->length;
+    if (unlikely(nfa_end > rose_size)) {
+        DEBUG_PRINTF("SmallWriteEngine NFA out of bounds: "
+                     "start=%llu length=%u end=%llu > rose_size=%u\n",
+                     nfa_start, nfa->length, nfa_end, rose_size);
+        return HS_INVALID;
+    }
+
+    return HS_SUCCESS;
+}
+
+/**
+ * \brief Size in bytes of a Rose instruction, or 0 if the opcode is unknown.
+ *
+ * Mirrors the interpreter's PROGRAM_NEXT_INSTRUCTION step, which advances by
+ * ROUNDUP_N(sizeof(struct ROSE_STRUCT_<op>), ROSE_INSTR_MIN_ALIGN). A switch
+ * avoids C99 designated initializers (used nowhere else in this tree) and is
+ * fail-closed: an opcode added without a case here returns 0 and the database
+ * is rejected rather than mis-parsed.
+ */
+#define ROSE_INSTR_SIZE_CASE(name)                                            \
+    case ROSE_INSTR_##name:                                                   \
+        return ROUNDUP_N(sizeof(struct ROSE_STRUCT_##name),                   \
+                         ROSE_INSTR_MIN_ALIGN)
+
+static
+u32 rose_instr_size(u8 code) {
+    switch (code) {
+    ROSE_INSTR_SIZE_CASE(END);
+    ROSE_INSTR_SIZE_CASE(ANCHORED_DELAY);
+    ROSE_INSTR_SIZE_CASE(CHECK_LIT_EARLY);
+    ROSE_INSTR_SIZE_CASE(CHECK_GROUPS);
+    ROSE_INSTR_SIZE_CASE(CHECK_ONLY_EOD);
+    ROSE_INSTR_SIZE_CASE(CHECK_BOUNDS);
+    ROSE_INSTR_SIZE_CASE(CHECK_NOT_HANDLED);
+    ROSE_INSTR_SIZE_CASE(CHECK_SINGLE_LOOKAROUND);
+    ROSE_INSTR_SIZE_CASE(CHECK_LOOKAROUND);
+    ROSE_INSTR_SIZE_CASE(CHECK_MASK);
+    ROSE_INSTR_SIZE_CASE(CHECK_MASK_32);
+    ROSE_INSTR_SIZE_CASE(CHECK_BYTE);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_16x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_32x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_16x16);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_32x16);
+    ROSE_INSTR_SIZE_CASE(CHECK_INFIX);
+    ROSE_INSTR_SIZE_CASE(CHECK_PREFIX);
+    ROSE_INSTR_SIZE_CASE(PUSH_DELAYED);
+    ROSE_INSTR_SIZE_CASE(DUMMY_NOP);
+    ROSE_INSTR_SIZE_CASE(CATCH_UP);
+    ROSE_INSTR_SIZE_CASE(CATCH_UP_MPV);
+    ROSE_INSTR_SIZE_CASE(SOM_ADJUST);
+    ROSE_INSTR_SIZE_CASE(SOM_LEFTFIX);
+    ROSE_INSTR_SIZE_CASE(SOM_FROM_REPORT);
+    ROSE_INSTR_SIZE_CASE(SOM_ZERO);
+    ROSE_INSTR_SIZE_CASE(TRIGGER_INFIX);
+    ROSE_INSTR_SIZE_CASE(TRIGGER_SUFFIX);
+    ROSE_INSTR_SIZE_CASE(DEDUPE);
+    ROSE_INSTR_SIZE_CASE(DEDUPE_SOM);
+    ROSE_INSTR_SIZE_CASE(REPORT_CHAIN);
+    ROSE_INSTR_SIZE_CASE(REPORT_SOM_INT);
+    ROSE_INSTR_SIZE_CASE(REPORT_SOM_AWARE);
+    ROSE_INSTR_SIZE_CASE(REPORT);
+    ROSE_INSTR_SIZE_CASE(REPORT_EXHAUST);
+    ROSE_INSTR_SIZE_CASE(REPORT_SOM);
+    ROSE_INSTR_SIZE_CASE(REPORT_SOM_EXHAUST);
+    ROSE_INSTR_SIZE_CASE(DEDUPE_AND_REPORT);
+    ROSE_INSTR_SIZE_CASE(FINAL_REPORT);
+    ROSE_INSTR_SIZE_CASE(CHECK_EXHAUSTED);
+    ROSE_INSTR_SIZE_CASE(CHECK_MIN_LENGTH);
+    ROSE_INSTR_SIZE_CASE(SET_STATE);
+    ROSE_INSTR_SIZE_CASE(SET_GROUPS);
+    ROSE_INSTR_SIZE_CASE(SQUASH_GROUPS);
+    ROSE_INSTR_SIZE_CASE(CHECK_STATE);
+    ROSE_INSTR_SIZE_CASE(SPARSE_ITER_BEGIN);
+    ROSE_INSTR_SIZE_CASE(SPARSE_ITER_NEXT);
+    ROSE_INSTR_SIZE_CASE(SPARSE_ITER_ANY);
+    ROSE_INSTR_SIZE_CASE(ENGINES_EOD);
+    ROSE_INSTR_SIZE_CASE(SUFFIXES_EOD);
+    ROSE_INSTR_SIZE_CASE(MATCHER_EOD);
+    ROSE_INSTR_SIZE_CASE(CHECK_LONG_LIT);
+    ROSE_INSTR_SIZE_CASE(CHECK_LONG_LIT_NOCASE);
+    ROSE_INSTR_SIZE_CASE(CHECK_MED_LIT);
+    ROSE_INSTR_SIZE_CASE(CHECK_MED_LIT_NOCASE);
+    ROSE_INSTR_SIZE_CASE(CLEAR_WORK_DONE);
+    ROSE_INSTR_SIZE_CASE(MULTIPATH_LOOKAROUND);
+    ROSE_INSTR_SIZE_CASE(CHECK_MULTIPATH_SHUFTI_16x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_MULTIPATH_SHUFTI_32x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_MULTIPATH_SHUFTI_32x16);
+    ROSE_INSTR_SIZE_CASE(CHECK_MULTIPATH_SHUFTI_64);
+    ROSE_INSTR_SIZE_CASE(INCLUDED_JUMP);
+    ROSE_INSTR_SIZE_CASE(SET_LOGICAL);
+    ROSE_INSTR_SIZE_CASE(SET_COMBINATION);
+    ROSE_INSTR_SIZE_CASE(FLUSH_COMBINATION);
+    ROSE_INSTR_SIZE_CASE(SET_EXHAUST);
+    ROSE_INSTR_SIZE_CASE(LAST_FLUSH_COMBINATION);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_64x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_64x16);
+    ROSE_INSTR_SIZE_CASE(CHECK_MASK_64);
+    default:
+        return 0;
+    }
+}
+
+#undef ROSE_INSTR_SIZE_CASE
+
+/**
+ * \brief Walk a Rose program and validate its structure and key operands.
+ *
+ * instruction operands that index runtime arrays (SET_STATE,
+ * CHECK_STATE, SPARSE_ITER_*) must be bounded, otherwise a forged database
+ * yields OOB accesses in the interpreter.
+ *
+ * an arbitrary but in-bounds program offset (e.g. a forged
+ * noodTable->id) drops the interpreter onto garbage. Requiring the program to
+ * decode cleanly and terminate at ROSE_INSTR_END rejects such offsets.
+ *
+ * \param rose RoseEngine structure.
+ * \param rose_size Total size of the rose engine blob.
+ * \param prog_offset Program entry point, relative to \a rose.
+ */
+static
+hs_error_t db_validate_program_at(const struct RoseEngine *rose, u32 rose_size,
+                                  u32 prog_offset) {
+    const char *base = (const char *)rose;
+
+    if (!prog_offset) {
+        return HS_SUCCESS; /* absent program */
+    }
+    if (unlikely(prog_offset >= rose_size)) {
+        DEBUG_PRINTF("program offset %u out of bounds\n", prog_offset);
+        return HS_INVALID;
+    }
+    /* Programs are emitted after the RoseEngine header and are instruction
+     * aligned; an offset violating either cannot be a real entry point. */
+    if (unlikely(prog_offset < sizeof(struct RoseEngine) ||
+                 prog_offset % ROSE_INSTR_MIN_ALIGN)) {
+        DEBUG_PRINTF("program offset %u is not a valid entry point\n",
+                     prog_offset);
+        return HS_INVALID;
+    }
+
+    u32 pc = prog_offset;
+    /* Bound the walk: every step consumes at least ROSE_INSTR_MIN_ALIGN
+     * bytes, so the program cannot have more instructions than that. */
+    u32 max_steps = rose_size / ROSE_INSTR_MIN_ALIGN + 1;
+
+    for (u32 step = 0; step < max_steps; step++) {
+        if (unlikely(pc >= rose_size)) {
+            DEBUG_PRINTF("program ran off the end at pc=%u\n", pc);
+            return HS_INVALID;
+        }
+
+        u8 code = (u8)base[pc];
+        if (unlikely(code > LAST_ROSE_INSTRUCTION)) {
+            DEBUG_PRINTF("bad opcode %u at pc=%u\n", code, pc);
+            return HS_INVALID;
+        }
+
+        u32 isize = rose_instr_size(code);
+        if (unlikely(!isize)) {
+            DEBUG_PRINTF("unknown instruction size for opcode %u\n", code);
+            return HS_INVALID;
+        }
+        /* Keeps pc instruction-aligned, so the casts below are well-defined on
+         * strict-alignment targets. */
+        if (unlikely(isize % ROSE_INSTR_MIN_ALIGN)) {
+            DEBUG_PRINTF("instruction %u size %u breaks alignment\n",
+                         code, isize);
+            return HS_INVALID;
+        }
+        if (unlikely((u64a)pc + isize > rose_size)) {
+            DEBUG_PRINTF("instruction %u at pc=%u overruns rose_size\n",
+                         code, pc);
+            return HS_INVALID;
+        }
+
+        switch (code) {
+        case ROSE_INSTR_END:
+            return HS_SUCCESS;
+
+        case ROSE_INSTR_SET_STATE: {
+            const struct ROSE_STRUCT_SET_STATE *ri =
+                (const struct ROSE_STRUCT_SET_STATE *)(base + pc);
+            if (unlikely(ri->index >= rose->rolesWithStateCount)) {
+                DEBUG_PRINTF("SET_STATE index %u >= rolesWithStateCount %u\n",
+                             ri->index, rose->rolesWithStateCount);
+                return HS_INVALID;
+            }
+            break;
+        }
+        case ROSE_INSTR_CHECK_STATE: {
+            const struct ROSE_STRUCT_CHECK_STATE *ri =
+                (const struct ROSE_STRUCT_CHECK_STATE *)(base + pc);
+            if (unlikely(ri->index >= rose->rolesWithStateCount)) {
+                DEBUG_PRINTF("CHECK_STATE index %u >= rolesWithStateCount %u\n",
+                             ri->index, rose->rolesWithStateCount);
+                return HS_INVALID;
+            }
+            break;
+        }
+        case ROSE_INSTR_SPARSE_ITER_BEGIN: {
+            const struct ROSE_STRUCT_SPARSE_ITER_BEGIN *ri =
+                (const struct ROSE_STRUCT_SPARSE_ITER_BEGIN *)(base + pc);
+            if (unlikely(ri->iter_offset >= rose_size ||
+                         ri->jump_table >= rose_size ||
+                         (ri->fail_jump &&
+                          (u64a)pc + ri->fail_jump > rose_size))) {
+                DEBUG_PRINTF("SPARSE_ITER_BEGIN operands out of bounds\n");
+                return HS_INVALID;
+            }
+            break;
+        }
+        case ROSE_INSTR_SPARSE_ITER_NEXT: {
+            const struct ROSE_STRUCT_SPARSE_ITER_NEXT *ri =
+                (const struct ROSE_STRUCT_SPARSE_ITER_NEXT *)(base + pc);
+            if (unlikely(ri->iter_offset >= rose_size ||
+                         ri->jump_table >= rose_size ||
+                         (ri->fail_jump &&
+                          (u64a)pc + ri->fail_jump > rose_size))) {
+                DEBUG_PRINTF("SPARSE_ITER_NEXT operands out of bounds\n");
+                return HS_INVALID;
+            }
+            break;
+        }
+        case ROSE_INSTR_SPARSE_ITER_ANY: {
+            const struct ROSE_STRUCT_SPARSE_ITER_ANY *ri =
+                (const struct ROSE_STRUCT_SPARSE_ITER_ANY *)(base + pc);
+            if (unlikely(ri->iter_offset >= rose_size ||
+                         (ri->fail_jump &&
+                          (u64a)pc + ri->fail_jump > rose_size))) {
+                DEBUG_PRINTF("SPARSE_ITER_ANY operands out of bounds\n");
+                return HS_INVALID;
+            }
+            break;
+        }
+        default:
+            break;
+        }
+
+        pc += isize;
+    }
+
+    DEBUG_PRINTF("program from %u did not terminate\n", prog_offset);
+    return HS_INVALID;
+}
+
 static
 hs_error_t db_validate_rose_programs(const struct RoseEngine *rose,
                                      u32 rose_size) {
     const char *rose_base = (const char *)rose;
-    
-    // Only noodle-type HWLM matchers embed a noodTable at this offset.
+
+    /* Only noodle-type HWLM matchers embed a noodTable at this offset. */
     u32 fmatcherOffset = rose->fmatcherOffset;
     if (fmatcherOffset && fmatcherOffset < rose_size &&
         fmatcherOffset + sizeof(struct HWLM) <= rose_size) {
@@ -1864,105 +2183,59 @@ hs_error_t db_validate_rose_programs(const struct RoseEngine *rose,
                 fmatcherOffset + (u32)ROUNDUP_CL(sizeof(struct HWLM));
             if (nood_table_offset + sizeof(struct noodTable) > rose_size) {
                 DEBUG_PRINTF("noodTable overflow: offset=%u size=%u rose_size=%u\n",
-                             nood_table_offset, (u32)sizeof(struct noodTable), rose_size);
+                             nood_table_offset,
+                             (u32)sizeof(struct noodTable), rose_size);
                 return HS_INVALID;
             }
-
-            const struct noodTable *nood_table =
+            /* the literal program entry point must decode. */
+            const struct noodTable *nood =
                 (const struct noodTable *)(rose_base + nood_table_offset);
-            (void)nood_table; /* Structure accessed for bounds-checking, but fields not validated */
-
-            /* nood_table->id is a report ID, not a Rose bytecode offset.
-             * Do not bounds-check it against rose_size; report IDs are
-             * arbitrary user-provided values passed to the callback.
-             * Only validate actual offset fields in the noodTable struct. */
+            if (unlikely(db_validate_program_at(rose, rose_size, nood->id) !=
+                         HS_SUCCESS)) {
+                DEBUG_PRINTF("noodTable id %u is not a valid program\n",
+                             nood->id);
+                return HS_INVALID;
+            }
         }
     }
-    
-    // Validate programs: walk instructions and validate operands
-    // Known program offsets that contain instructions
-    u32 program_offsets[] = {
-        rose->reportProgramOffset,
-        rose->delayProgramOffset,
-        rose->anchoredProgramOffset,
+
+    /* validate the programs reachable from the fixed entry
+     * points, including their state-index and sparse-iterator operands. */
+    const u32 prog_offsets[] = {
         rose->eodProgramOffset,
         rose->flushCombProgramOffset,
         rose->lastFlushCombProgramOffset,
-        0  // Sentinel
+        rose->boundary.reportEodOffset,
+        rose->boundary.reportZeroOffset,
+        rose->boundary.reportZeroEodOffset,
     };
-    
-    u32 rolesWithStateCount = rose->rolesWithStateCount;
-    const u8 *bytecode = (const u8 *)rose_base;
-    
-    for (int i = 0; program_offsets[i] || i == 0; i++) {
-        u32 prog_offset = program_offsets[i];
-        if (!prog_offset || prog_offset >= rose_size) {
-            continue;
+    for (u32 i = 0; i < ARRAY_LENGTH(prog_offsets); i++) {
+        if (unlikely(db_validate_program_at(rose, rose_size,
+                                            prog_offsets[i]) != HS_SUCCESS)) {
+            DEBUG_PRINTF("program %u failed validation\n", i);
+            return HS_INVALID;
         }
-        
-        // Walk instructions in this program
-        for (u32 pc = prog_offset; pc < rose_size; ) {
-            if (pc + 1 > rose_size) {
-                DEBUG_PRINTF("Program instruction at offset %u truncated\n", pc);
+    }
+
+    /* reportProgramOffset points at a u32 array of program offsets. */
+    if (rose->reportProgramOffset && rose->reportProgramCount) {
+        u64a tbl_end = (u64a)rose->reportProgramOffset
+            + (u64a)rose->reportProgramCount * sizeof(u32);
+        if (unlikely(tbl_end > rose_size)) {
+            DEBUG_PRINTF("report program table out of bounds\n");
+            return HS_INVALID;
+        }
+        for (u32 i = 0; i < rose->reportProgramCount; i++) {
+            u32 off = unaligned_load_u32(rose_base + rose->reportProgramOffset
+                                         + i * sizeof(u32));
+            if (unlikely(db_validate_program_at(rose, rose_size, off) !=
+                         HS_SUCCESS)) {
+                DEBUG_PRINTF("report program %u failed validation\n", i);
                 return HS_INVALID;
-            }
-            
-            u8 instr_code = bytecode[pc];
-            
-            // Validate known dangerous instructions
-            switch (instr_code) {
-                case 41: // ROSE_INSTR_SET_STATE
-                    if (pc + 8 > rose_size) {
-                        DEBUG_PRINTF("SET_STATE at %u: truncated (need 8 bytes)\n", pc);
-                        return HS_INVALID;
-                    }
-                    {
-                        u32 index = unaligned_load_u32((const u8 *)rose_base + pc + 4);
-                        if (index >= rolesWithStateCount) {
-                            DEBUG_PRINTF("SET_STATE at %u: index=%u >= rolesWithStateCount=%u\n",
-                                         pc, index, rolesWithStateCount);
-                            return HS_INVALID;
-                        }
-                    }
-                    pc += 8;
-                    break;
-                    
-                case 119: // ROSE_INSTR_SPARSE_ITER_BEGIN
-                    if (pc + 12 > rose_size) {
-                        DEBUG_PRINTF("SPARSE_ITER at %u: truncated (need 12 bytes)\n", pc);
-                        return HS_INVALID;
-                    }
-                    {
-                        u32 iter_offset = unaligned_load_u32((const u8 *)rose_base + pc + 2);
-                        u32 jump_table = unaligned_load_u32((const u8 *)rose_base + pc + 6);
-                        
-                        if (iter_offset && iter_offset >= rose_size) {
-                            DEBUG_PRINTF("SPARSE_ITER at %u: iter_offset=%u out of bounds\n",
-                                         pc, iter_offset);
-                            return HS_INVALID;
-                        }
-                        if (jump_table && jump_table >= rose_size) {
-                            DEBUG_PRINTF("SPARSE_ITER at %u: jump_table=%u out of bounds\n",
-                                         pc, jump_table);
-                            return HS_INVALID;
-                        }
-                    }
-                    pc += 12;
-                    break;
-                    
-                case 0: // ROSE_INSTR_END
-                    pc = rose_size; // End of program
-                    break;
-                    
-                default:
-                    // For other instructions, use 8-byte fixed size
-                    // A complete implementation would have a full instruction format table
-                    pc += 8;
-                    break;
             }
         }
     }
-    
+
     return HS_SUCCESS;
 }
 
@@ -2256,6 +2529,12 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
     /* Validate MPV active/reporter offsets (CWE-787). */
     if (unlikely(db_validate_mpv_offsets(rose, rose_size) != HS_SUCCESS)) {
         DEBUG_PRINTF("MPV offset validation failed\n");
+        return HS_INVALID;
+    }
+
+    /* Validate SmallWriteEngine embedded NFA type. */
+    if (unlikely(db_validate_smallwrite_nfa(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("SmallWriteEngine NFA validation failed\n");
         return HS_INVALID;
     }
 

@@ -54,12 +54,16 @@ constexpr size_t kHmacOffset = 3 * sizeof(u32) + sizeof(u64a);           // 20
 constexpr size_t kHmacHdrOffset = kHmacOffset + 32;                       // 52
 constexpr size_t kBytecodeStart = kHmacHdrOffset + 32;                    // 84
 
-static void reseal_bytecode_hmac(char *serialized, size_t bytecode_len) {
+static void reseal_bytecode_hmac(char *serialized, size_t) {
+    // The HMAC covers exactly the `length` bytes named in the header; the
+    // serialized blob is longer than that due to alignment padding.
+    u32 bc_len;
+    memcpy(&bc_len, serialized + 2 * sizeof(u32), sizeof(bc_len));
     u8 new_hmac[32];
     unsigned int hmac_len = 32;
     HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
          reinterpret_cast<const unsigned char *>(serialized + kBytecodeStart),
-         bytecode_len, new_hmac, &hmac_len);
+         bc_len, new_hmac, &hmac_len);
     memcpy(serialized + kHmacOffset, new_hmac, sizeof(new_hmac));
 }
 

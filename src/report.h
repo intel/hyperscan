@@ -369,6 +369,16 @@ int roseDeliverSomReport(u64a from_offset, u64a to_offset, ReportID onmatch,
     to_offset += offset_adjust;
     assert(from_offset == HS_OFFSET_PAST_HORIZON || from_offset <= to_offset);
 
+    /* The SOM API contract guarantees from_offset <= to_offset.
+     * Enforce it here too, since the assert above is compiled out in release
+     * builds and applications slice their own buffers with these values. */
+    if (unlikely(from_offset != HS_OFFSET_PAST_HORIZON &&
+                 from_offset > to_offset)) {
+        DEBUG_PRINTF("clamping bogus from_offset %llu > to_offset %llu\n",
+                     from_offset, to_offset);
+        from_offset = to_offset;
+    }
+
     DEBUG_PRINTF(">> reporting match @[%llu,%llu] for sig %u ctxt %p <<\n",
                  from_offset, to_offset, onmatch, ci->userContext);
 
