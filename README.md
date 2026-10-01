@@ -41,3 +41,15 @@ sending email to the list, or by creating an issue on Github.
 If you wish to contact the Hyperscan team at Intel directly, without posting
 publicly to the mailing list, send email to
 [hyperscan@intel.com](mailto:hyperscan@intel.com).
+
+# Building hyperscan - Using vcpkg
+
+You can download and install hyperscan using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+
+    git clone https://github.com/Microsoft/vcpkg.git
+    cd vcpkg
+    ./bootstrap-vcpkg.sh
+    ./vcpkg integrate install
+    ./vcpkg install hyperscan
+
+The hyperscan port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
