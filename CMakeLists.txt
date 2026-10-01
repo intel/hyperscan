@@ -20,7 +20,11 @@ include (GNUInstallDirs)
 include (${CMAKE_MODULE_PATH}/platform.cmake)
 include (${CMAKE_MODULE_PATH}/ragel.cmake)
 
-find_package(PkgConfig QUIET)
+find_package(PkgConfig)
+
+if(NOT PkgConfig_FOUND)
+    message(STATUS "Could not find pkg-config. Will not generate pkg-config metadata for libhs.")
+endif()
 
 if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "Default build type 'Release with debug info'")
