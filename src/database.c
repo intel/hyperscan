@@ -1818,10 +1818,11 @@ hs_error_t db_validate_leftfix_lag_index(const struct RoseEngine *rose,
     }
 
     const char *rose_base = (const char *)rose;
-    
-    // Validate left table alignment before casting
-    if (unlikely(rose->leftOffset % sizeof(struct LeftNfaInfo) != 0)) {
-        DEBUG_PRINTF("leftOffset=%u not aligned to LeftNfaInfo size\n",
+
+    // leftOffset is a byte offset into the blob: it only needs to satisfy the
+    // natural alignment of LeftNfaInfo, not be a multiple of its size.
+    if (unlikely(rose->leftOffset % alignof(struct LeftNfaInfo) != 0)) {
+        DEBUG_PRINTF("leftOffset=%u misaligned for LeftNfaInfo\n",
                      rose->leftOffset);
         return HS_INVALID;
     }
