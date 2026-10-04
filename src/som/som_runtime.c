@@ -435,12 +435,25 @@ u64a handleSomExternal(struct hs_scratch *scratch,
     case SOM_EXTERNAL_CALLBACK_REL:
         DEBUG_PRINTF("SOM_EXTERNAL_CALLBACK_REL: som is %llu chars back\n",
                      ri->aux.somDistance);
-        assert(to_offset >= ri->aux.somDistance);
+        /* a forged somDistance larger than to_offset would
+         * underflow this u64a subtraction and hand the application a
+         * from_offset greater than to_offset. Clamp to the start of the
+         * stream instead. */
+        if (unlikely(ri->aux.somDistance > to_offset)) {
+            DEBUG_PRINTF("somDistance %llu > to_offset %llu, clamping\n",
+                         ri->aux.somDistance, to_offset);
+            return 0;
+        }
         return to_offset - ri->aux.somDistance;
     case SOM_EXTERNAL_CALLBACK_ABS:
         DEBUG_PRINTF("SOM_EXTERNAL_CALLBACK_ABS: som is at %llu\n",
                      ri->aux.somDistance);
-        assert(to_offset >= ri->aux.somDistance);
+        /* from_offset must never exceed to_offset. */
+        if (unlikely(ri->aux.somDistance > to_offset)) {
+            DEBUG_PRINTF("somDistance %llu > to_offset %llu, clamping\n",
+                         ri->aux.somDistance, to_offset);
+            return 0;
+        }
         return ri->aux.somDistance;
     case SOM_EXTERNAL_CALLBACK_STORED: {
         const u64a *som_store = scratch->som_store;
