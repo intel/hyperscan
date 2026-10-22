@@ -89,6 +89,15 @@ struct gough_info {
     u8 stream_som_loc_width;  /**< number of bytes per som loc */
 };
 
+/* Deserialization validators read gough_info by position (database.c). */
+typedef char gough_info_layout_check
+    [sizeof(struct gough_info) == GOUGH_INFO_SIZE &&
+     alignof(struct gough_info) == GOUGH_INFO_ALIGN &&
+     offsetof(struct gough_info, stream_som_loc_count) ==
+         GOUGH_INFO_SOM_LOC_COUNT_POS &&
+     offsetof(struct gough_info, stream_som_loc_width) ==
+         GOUGH_INFO_SOM_LOC_WIDTH_POS ? 1 : -1];
+
 static really_inline
 const struct gough_info *get_gough(const struct mcclellan *m) {
     assert(m->haig_offset);

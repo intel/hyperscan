@@ -67,6 +67,9 @@
 #include "util/dump_charclass.h"
 
 using namespace std;
+
+static_assert(sizeof(struct mcclellan) == MCCLELLAN_HEADER_SIZE,
+              "update MCCLELLAN_HEADER_SIZE");
 using boost::adaptors::map_keys;
 using boost::dynamic_bitset;
 

@@ -476,15 +476,22 @@ TEST(HybridArgChecks, AllocScratchBogusScratch) {
     ch_database_t *db = nullptr;
     makeDatabase(&db);
 
-    ch_scratch_t *blah = (ch_scratch_t *)malloc(100);
-    ASSERT_TRUE(blah != nullptr);
-    memset(blah, 0xf0, 100);
+    void *bogus = malloc(100);
+    if (bogus == nullptr) {
+        ch_free_database(db);
+        FAIL() << "malloc failed";
+    }
+    memset(bogus, 0xf0, 100);
+    ch_scratch_t *blah = (ch_scratch_t *)bogus;
     ch_error_t err = ch_alloc_scratch(db, &blah);
-    ASSERT_EQ(CH_INVALID, err);
 
     // teardown
-    free(blah);
+    if (blah != bogus) {
+        ch_free_scratch(blah);
+    }
+    free(bogus);
     ch_free_database(db);
+    ASSERT_EQ(CH_INVALID, err);
 }
 
 // ch_alloc_scratch: Call with broken database magic
@@ -537,12 +544,15 @@ TEST(HybridArgChecks, DatabaseSizeNoDatabase) {
 TEST(HybridArgChecks, CloneBadScratch) {
     // Try cloning the scratch
     void *local_garbage = malloc(sizeof(garbage));
-    ASSERT_TRUE(local_garbage != nullptr);
+    if (local_garbage == nullptr) {
+        FAIL() << "malloc failed";
+    }
     memcpy(local_garbage, garbage, sizeof(garbage));
     ch_scratch_t *cloned = nullptr;
     ch_scratch_t *scratch = (ch_scratch_t *)local_garbage;
     ch_error_t err = ch_clone_scratch(scratch, &cloned);
     free(local_garbage);
+    ch_free_scratch(cloned);
     ASSERT_EQ(CH_INVALID, err);
 }
 
@@ -552,17 +562,20 @@ TEST(HybridArgChecks, ScanBadScratch) {
     makeDatabase(&db);
 
     void *local_garbage = malloc(sizeof(garbage));
-    ASSERT_TRUE(local_garbage != nullptr);
+    if (local_garbage == nullptr) {
+        ch_free_database(db);
+        FAIL() << "malloc failed";
+    }
     memcpy(local_garbage, garbage, sizeof(garbage));
 
     ch_scratch_t *scratch = (ch_scratch_t *)local_garbage;
     ch_error_t err = ch_scan(db, "data", 4, 0, scratch,
                              dummyHandler, nullptr, nullptr);
-    free(local_garbage);
-    ASSERT_EQ(CH_INVALID, err);
 
     // teardown
+    free(local_garbage);
     ch_free_database(db);
+    ASSERT_EQ(CH_INVALID, err);
 }
 
 TEST(HybridArgChecks, ch_free_database_null) {
