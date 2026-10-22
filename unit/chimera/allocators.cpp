@@ -128,10 +128,12 @@ TEST(HybridAllocator, TwoAlignedDatabaseInfo) {
 
     char *info = nullptr;
     ch_error_t err = ch_database_info(db, &info);
-    ASSERT_EQ(CH_BAD_ALLOC, err);
+    // info (if any) came from the misc allocator, so free it before resetting.
+    two_aligned_free(info);
 
     ch_set_misc_allocator(nullptr, nullptr);
     ch_free_database(db);
+    ASSERT_EQ(CH_BAD_ALLOC, err);
 }
 
 TEST(HybridAllocator, TwoAlignedAllocScratch) {

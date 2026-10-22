@@ -102,6 +102,11 @@ struct mcclellan {
                       * nfa structure */
 };
 
+/* Deserialization validators read this field by position (database.c). */
+typedef char mcclellan_haig_offset_pos_check
+    [offsetof(struct mcclellan, haig_offset) == MCCLELLAN_HAIG_OFFSET_POS ? 1
+                                                                         : -1];
+
 static really_inline
 const char *findShermanState(UNUSED const struct mcclellan *m,
                              const char *sherman_base_offset, u32 sherman_base,

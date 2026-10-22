@@ -29,6 +29,7 @@
 #include "config.h"
 #include <algorithm>
 #include <climits>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -754,51 +755,55 @@ TEST(HyperscanTestBehaviour, SerializedDogfood2) {
 // simple case, with just a single trivial pattern.
 TEST(HyperscanTestBehaviour, SerializedDogfood3) {
     // build database
-    hs_database_t *db = buildDB("puppy treats!", 0, 0, HS_MODE_BLOCK);
+    unique_ptr<hs_database_t, decltype(&hs_free_database)> db(
+        buildDB("puppy treats!", 0, 0, HS_MODE_BLOCK), &hs_free_database);
     ASSERT_TRUE(db != nullptr);
 
     hs_error_t err;
     size_t origSize;
-    err = hs_database_size(db, &origSize);
+    err = hs_database_size(db.get(), &origSize);
     ASSERT_EQ(HS_SUCCESS, err);
 
     // serialise to buffer
-    char *bytes = nullptr;
+    char *raw_bytes = nullptr;
     size_t length = 0;
-    err = hs_serialize_database(db, &bytes, &length);
+    err = hs_serialize_database(db.get(), &raw_bytes, &length);
+    unique_ptr<char, decltype(&free)> bytes(raw_bytes, &free);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(bytes != nullptr);
     ASSERT_LT(0U, length);
 
     // free original database
-    hs_free_database(db);
-    db = nullptr;
+    db.reset();
 
     // find out how much space we need
     size_t slength;
-    err = hs_serialized_database_size(bytes, length, &slength);
+    err = hs_serialized_database_size(bytes.get(), length, &slength);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_EQ(slength, origSize) << "Database lengths should match.";
 
     // fail tests: try to deserialize into an incorrectly aligned region.
-    char *mem = (char *)malloc(slength + 16);
+    unique_ptr<char, decltype(&free)> mem((char *)malloc(slength + 16), &free);
     ASSERT_TRUE(mem != nullptr);
-    ASSERT_EQ(0U, (ptrdiff_t)mem % 8);
+    ASSERT_EQ(0U, (ptrdiff_t)mem.get() % 8);
 
     // add one for epic fail
-    err = hs_deserialize_database_at(bytes, length, (hs_database_t *)(mem + 1));
+    err = hs_deserialize_database_at(bytes.get(), length,
+                                     (hs_database_t *)(mem.get() + 1));
     ASSERT_EQ(HS_BAD_ALIGN, err);
 
     // add four, which should give us 4-byte alignment which isn't good enough.
-    err = hs_deserialize_database_at(bytes, length, (hs_database_t *)(mem + 4));
+    err = hs_deserialize_database_at(bytes.get(), length,
+                                     (hs_database_t *)(mem.get() + 4));
     ASSERT_EQ(HS_BAD_ALIGN, err);
 
     // deserialize for real
-    err = hs_deserialize_database_at(bytes, length, (hs_database_t *)mem);
+    err = hs_deserialize_database_at(bytes.get(), length,
+                                     (hs_database_t *)mem.get());
     ASSERT_EQ(HS_SUCCESS, err);
-    free(bytes);
+    bytes.reset();
 
-    const hs_database_t *db2 = (const hs_database_t *)mem;
+    const hs_database_t *db2 = (const hs_database_t *)mem.get();
 
     // tests
     size_t newSize;
@@ -810,16 +815,17 @@ TEST(HyperscanTestBehaviour, SerializedDogfood3) {
     lastMatchTo = 0;
     const char *data = "delicious puppy treats!";
     unsigned int len = strlen(data);
-    hs_scratch_t *scratch = nullptr;
-    err = hs_alloc_scratch(db2, &scratch);
+    hs_scratch_t *raw_scratch = nullptr;
+    err = hs_alloc_scratch(db2, &raw_scratch);
+    unique_ptr<hs_scratch_t, decltype(&hs_free_scratch)> scratch(
+        raw_scratch, &hs_free_scratch);
     ASSERT_EQ(HS_SUCCESS, err);
-    err = hs_scan(db2, data, len, 0, scratch, singleHandler, nullptr);
+    err = hs_scan(db2, data, len, 0, scratch.get(), singleHandler, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_EQ(len, lastMatchTo);
 
-    err = hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch.release());
     ASSERT_EQ(HS_SUCCESS, err);
-    free(mem);
 }
 
 // Test that we do get a pending match on stream close.

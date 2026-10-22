@@ -43,6 +43,19 @@ extern "C"
 
 #define MO_INVALID_IDX  0xffffffff /**< index meaning value is invalid */
 
+/** sizeof(struct mcclellan): the successor table starts right after it.
+ * Kept here for code that cannot include mcclellan_internal.h. */
+#define MCCLELLAN_HEADER_SIZE 308
+
+/** offsetof(struct mcclellan, haig_offset); checked in mcclellan_internal.h. */
+#define MCCLELLAN_HAIG_OFFSET_POS 300
+
+/** struct gough_info layout; checked in gough_internal.h. */
+#define GOUGH_INFO_SIZE 16
+#define GOUGH_INFO_ALIGN 4
+#define GOUGH_INFO_SOM_LOC_COUNT_POS 8
+#define GOUGH_INFO_SOM_LOC_WIDTH_POS 12
+
 // Flags (used in NFA::flags)
 
 #define NFA_ACCEPTS_EOD 1U     /**< can produce matches on EOD. */
