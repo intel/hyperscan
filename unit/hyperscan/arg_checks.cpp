@@ -1380,15 +1380,22 @@ TEST(HyperscanArgChecks, AllocScratchBogusScratch) {
                                 &compile_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
-    hs_scratch_t *blah = (hs_scratch_t *)malloc(100);
-    ASSERT_TRUE(blah != nullptr);
-    memset(blah, 0xf0, 100);
+    void *bogus = malloc(100);
+    if (bogus == nullptr) {
+        hs_free_database(db);
+        FAIL() << "malloc failed";
+    }
+    memset(bogus, 0xf0, 100);
+    hs_scratch_t *blah = (hs_scratch_t *)bogus;
     err = hs_alloc_scratch(db, &blah);
-    ASSERT_EQ(HS_INVALID, err);
 
     // teardown
-    free(blah);
+    if (blah != bogus) {
+        hs_free_scratch(blah);
+    }
+    free(bogus);
     hs_free_database(db);
+    ASSERT_EQ(HS_INVALID, err);
 }
 
 // hs_alloc_scratch: Call with broken database magic
@@ -1904,10 +1911,15 @@ TEST(HyperscanArgChecks, DeserializeDatabaseBadLen) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDatabase(&bytes, &length);
+    if (bytes == nullptr || length == 0) {
+        free(bytes);
+        FAIL() << "failed to build serialized database";
+    }
     hs_database_t *db = nullptr;
     hs_error_t err = hs_deserialize_database(bytes, length - 1, &db);
-    ASSERT_EQ(HS_INVALID, err);
+    hs_free_database(db);
     free(bytes);
+    ASSERT_EQ(HS_INVALID, err);
 }
 
 TEST(HyperscanArgChecks, DeserializeDatabaseBadLen2) {
@@ -1955,14 +1967,25 @@ TEST(HyperscanArgChecks, DeserializeDatabaseAtBadLen) {
     char *bytes = nullptr;
     size_t length = 0;
     makeSerializedDatabase(&bytes, &length);
+    if (bytes == nullptr || length == 0) {
+        free(bytes);
+        FAIL() << "failed to build serialized database";
+    }
     size_t db_length = 0;
     hs_error_t err = hs_serialized_database_size(bytes, length, &db_length);
-    ASSERT_EQ(HS_SUCCESS, err);
-    hs_database_t *db = (hs_database_t *)malloc(db_length);
+    hs_database_t *db = nullptr;
+    if (err == HS_SUCCESS) {
+        db = (hs_database_t *)malloc(db_length);
+    }
+    if (db == nullptr) {
+        free(bytes);
+        FAIL() << "failed to allocate database memory, err=" << err;
+    }
     err = hs_deserialize_database_at(bytes, length - 1, db);
-    ASSERT_EQ(HS_INVALID, err);
     free(bytes);
+    // Caller-owned memory: hs_free_database() would reject the unset magic.
     free(db);
+    ASSERT_EQ(HS_INVALID, err);
 }
 
 TEST(HyperscanArgChecks, DeserializeDatabaseAtBadLen2) {
@@ -1974,9 +1997,9 @@ TEST(HyperscanArgChecks, DeserializeDatabaseAtBadLen2) {
     ASSERT_EQ(HS_SUCCESS, err);
     hs_database_t *db = (hs_database_t *)malloc(db_length);
     err = hs_deserialize_database_at(bytes, length + 1, db);
-    ASSERT_EQ(HS_INVALID, err);
     free(bytes);
     free(db);
+    ASSERT_EQ(HS_INVALID, err);
 }
 
 TEST(HyperscanArgChecks, DeserializeDatabaseAtBadBytes) {
@@ -1989,9 +2012,9 @@ TEST(HyperscanArgChecks, DeserializeDatabaseAtBadBytes) {
     hs_database_t *db = (hs_database_t *)malloc(db_length);
     memset(bytes, 0xff, length); // scribble
     err = hs_deserialize_database_at(bytes, length, db);
-    ASSERT_EQ(HS_INVALID, err);
     free(bytes);
     free(db);
+    ASSERT_EQ(HS_INVALID, err);
 }
 
 TEST(HyperscanArgChecks, DeserializeDatabaseAtBadBytes2) {
@@ -2004,9 +2027,9 @@ TEST(HyperscanArgChecks, DeserializeDatabaseAtBadBytes2) {
     hs_database_t *db = (hs_database_t *)malloc(db_length);
     memset(bytes, 0, length); // scribble
     err = hs_deserialize_database_at(bytes, length, db);
-    ASSERT_EQ(HS_INVALID, err);
     free(bytes);
     free(db);
+    ASSERT_EQ(HS_INVALID, err);
 }
 
 TEST(HyperscanArgChecks, ScratchSizeNoSize) {
@@ -2049,12 +2072,15 @@ TEST(HyperscanArgChecks, ScratchSizeBadScratch) {
 TEST(HyperscanArgChecks, CloneBadScratch) {
     // Try cloning the scratch
     void *local_garbage = malloc(sizeof(garbage));
-    ASSERT_TRUE(local_garbage != nullptr);
+    if (local_garbage == nullptr) {
+        FAIL() << "malloc failed";
+    }
     memcpy(local_garbage, garbage, sizeof(garbage));
     hs_scratch_t *cloned = nullptr;
     hs_scratch_t *scratch = (hs_scratch_t *)local_garbage;
     hs_error_t err = hs_clone_scratch(scratch, &cloned);
     free(local_garbage);
+    hs_free_scratch(cloned);
     ASSERT_EQ(HS_INVALID, err);
 }
 
@@ -2068,16 +2094,19 @@ TEST(HyperscanArgChecks, ScanBadScratch) {
     ASSERT_TRUE(db != nullptr);
 
     void *local_garbage = malloc(sizeof(garbage));
-    ASSERT_TRUE(local_garbage != nullptr);
+    if (local_garbage == nullptr) {
+        hs_free_database(db);
+        FAIL() << "malloc failed";
+    }
     memcpy(local_garbage, garbage, sizeof(garbage));
 
     hs_scratch_t *scratch = (hs_scratch_t *)local_garbage;
     err = hs_scan(db, "data", 4, 0, scratch, dummy_cb, nullptr);
-    free(local_garbage);
-    ASSERT_EQ(HS_INVALID, err);
 
     // teardown
+    free(local_garbage);
     hs_free_database(db);
+    ASSERT_EQ(HS_INVALID, err);
 }
 
 // hs_scan_stream: bad scratch arg
@@ -2088,15 +2117,22 @@ TEST(HyperscanArgChecks, ScanStreamBadScratch) {
                                 &compile_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
-    void *local_garbage = malloc(sizeof(garbage));
-    ASSERT_TRUE(local_garbage != nullptr);
-    memcpy(local_garbage, garbage, sizeof(garbage));
-    hs_scratch_t *scratch = (hs_scratch_t *)local_garbage;
 
     hs_stream_t *stream = nullptr;
     err = hs_open_stream(db, 0, &stream);
-    ASSERT_EQ(HS_SUCCESS, err);
-    ASSERT_TRUE(stream != nullptr);
+    if (err != HS_SUCCESS || stream == nullptr) {
+        hs_free_database(db);
+        FAIL() << "hs_open_stream failed, err=" << err;
+    }
+
+    void *local_garbage = malloc(sizeof(garbage));
+    if (local_garbage == nullptr) {
+        hs_close_stream(stream, nullptr, nullptr, nullptr);
+        hs_free_database(db);
+        FAIL() << "malloc failed";
+    }
+    memcpy(local_garbage, garbage, sizeof(garbage));
+    hs_scratch_t *scratch = (hs_scratch_t *)local_garbage;
 
     err = hs_scan_stream(stream, "data", 4, 0, scratch, nullptr, nullptr);
     EXPECT_NE(HS_SUCCESS, err);
@@ -2105,15 +2141,15 @@ TEST(HyperscanArgChecks, ScanStreamBadScratch) {
     // teardown
     err = hs_close_stream(stream, scratch, dummy_cb, nullptr);
     EXPECT_EQ(HS_INVALID, err);
+    free(local_garbage);
     scratch = nullptr;
     err = hs_alloc_scratch(db, &scratch);
-    ASSERT_EQ(HS_SUCCESS, err);
-    ASSERT_TRUE(scratch != nullptr);
+    EXPECT_EQ(HS_SUCCESS, err);
+    EXPECT_TRUE(scratch != nullptr);
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_free_database(db);
     err = hs_free_scratch(scratch);
     ASSERT_EQ(HS_SUCCESS, err);
-    free(local_garbage);
 }
 
 // hs_reset_stream: bad scratch arg
@@ -2124,15 +2160,22 @@ TEST(HyperscanArgChecks, ResetStreamBadScratch) {
                                 &compile_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
-    void *local_garbage = malloc(sizeof(garbage));
-    ASSERT_TRUE(local_garbage != nullptr);
-    memcpy(local_garbage, garbage, sizeof(garbage));
-    hs_scratch_t *scratch = (hs_scratch_t *)local_garbage;
 
     hs_stream_t *stream = nullptr;
     err = hs_open_stream(db, 0, &stream);
-    ASSERT_EQ(HS_SUCCESS, err);
-    ASSERT_TRUE(stream != nullptr);
+    if (err != HS_SUCCESS || stream == nullptr) {
+        hs_free_database(db);
+        FAIL() << "hs_open_stream failed, err=" << err;
+    }
+
+    void *local_garbage = malloc(sizeof(garbage));
+    if (local_garbage == nullptr) {
+        hs_close_stream(stream, nullptr, nullptr, nullptr);
+        hs_free_database(db);
+        FAIL() << "malloc failed";
+    }
+    memcpy(local_garbage, garbage, sizeof(garbage));
+    hs_scratch_t *scratch = (hs_scratch_t *)local_garbage;
 
     err = hs_reset_stream(stream, 0, scratch, dummy_cb, nullptr);
     EXPECT_NE(HS_SUCCESS, err);
@@ -2141,15 +2184,15 @@ TEST(HyperscanArgChecks, ResetStreamBadScratch) {
     // teardown
     err = hs_close_stream(stream, scratch, dummy_cb, nullptr);
     EXPECT_EQ(HS_INVALID, err);
+    free(local_garbage);
     scratch = nullptr;
     err = hs_alloc_scratch(db, &scratch);
-    ASSERT_EQ(HS_SUCCESS, err);
-    ASSERT_TRUE(scratch != nullptr);
+    EXPECT_EQ(HS_SUCCESS, err);
+    EXPECT_TRUE(scratch != nullptr);
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_free_database(db);
     err = hs_free_scratch(scratch);
     ASSERT_EQ(HS_SUCCESS, err);
-    free(local_garbage);
 }
 
 // hs_scan_stream: bad scratch arg
@@ -2161,7 +2204,10 @@ TEST(HyperscanArgChecks, ScanVectorBadScratch) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
     void *local_garbage = malloc(sizeof(garbage));
-    ASSERT_TRUE(local_garbage != nullptr);
+    if (local_garbage == nullptr) {
+        hs_free_database(db);
+        FAIL() << "malloc failed";
+    }
     memcpy(local_garbage, garbage, sizeof(garbage));
     hs_scratch_t *scratch = (hs_scratch_t *)local_garbage;
 

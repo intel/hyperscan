@@ -47,6 +47,7 @@
 #include "nfa/nfa_internal.h"
 #include "nfa/limex_internal.h"
 #include "nfa/lbr_internal.h"
+#include "nfa/castle_internal.h"
 #include "nfa/repeat_internal.h"
 #include "nfa/mpv_internal.h"
 #include "nfa/tamarama_internal.h"
@@ -56,6 +57,8 @@
 #include "hwlm/hwlm_internal.h"
 #include "hwlm/noodle_internal.h"
 #include "rose/rose_internal.h"
+#include "rose/rose_program.h"
+#include "smallwrite/smallwrite_internal.h"
 #include "util/compile_error.h"
 #include "util/exhaust.h"
 #include "util/multibit_internal.h"
@@ -445,7 +448,8 @@ hs_error_t db_validate_mcsheng_succ_table(const struct RoseEngine *rose,
 
     return HS_SUCCESS;
 }
-	
+
+
 
 /**
  * \brief Validate LBR NFA repeatInfoOffset fields.
@@ -531,6 +535,180 @@ hs_error_t db_validate_lbr_repeat_info(const struct RoseEngine *rose,
 }
 
 /**
+ * \brief Validate Castle NFA stream-state layout fields.
+ *
+ * Castle addresses its per-stream state through activeOffset, groupIterOffset,
+ * numRepeats and numGroups, all read straight from the serialized blob.
+ * nfaExecCastle_initCompressedState() clears multibits at those offsets from
+ * hs_open_stream(), before any input is scanned, so a forged offset is an
+ * immediate out-of-bounds heap write rather than a read.
+ *
+ * Each engine addresses only its own slice of stream state, nfa->streamStateSize
+ * bytes long (dbIsValid() separately bounds stateOffset + streamStateSize
+ * against stateOffsets.end), so that is the limit every Castle offset must
+ * respect.
+ */
+static
+hs_error_t db_validate_castle_engines(const struct RoseEngine *rose,
+                                      u32 rose_size) {
+    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose_size) {
+        return HS_SUCCESS; /* no NFA engines */
+    }
+
+    const char *base = (const char *)rose;
+    const struct NfaInfo *infos =
+        (const struct NfaInfo *)(base + rose->nfaInfoOffset);
+
+    for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        if (unlikely((const char *)(&infos[qi + 1]) > base + rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NfaInfo *ni = &infos[qi];
+        if (!ni->nfaOffset || ni->nfaOffset >= rose_size) {
+            continue;
+        }
+        if (unlikely(ni->nfaOffset + sizeof(struct NFA) > rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NFA *nfa = (const struct NFA *)(base + ni->nfaOffset);
+
+        if (nfa->type != CASTLE_NFA) {
+            continue;
+        }
+
+        /* Whole NFA blob must fit inside rose, and be large enough to hold a
+         * Castle header. */
+        if (unlikely((u64a)ni->nfaOffset + nfa->length > rose_size)) {
+            DEBUG_PRINTF("Castle NFA[%u] body out of bounds\n", qi);
+            return HS_INVALID;
+        }
+        if (unlikely(nfa->length <
+                     sizeof(struct NFA) + sizeof(struct Castle))) {
+            DEBUG_PRINTF("Castle NFA[%u] too small for Castle body: len=%u\n",
+                         qi, nfa->length);
+            return HS_INVALID;
+        }
+
+        const struct Castle *c =
+            (const struct Castle *)(base + ni->nfaOffset + sizeof(struct NFA));
+
+        const u32 stream_size = nfa->streamStateSize;
+        const u32 body_size = nfa->length - (u32)sizeof(struct NFA);
+
+        /* Both counts feed rt_mmbit_size(), which returns 0 above
+         * MMB_MAX_BITS; reject those outright so a zero size cannot slip
+         * past the bounds checks below. */
+        if (unlikely(c->numRepeats > MMB_MAX_BITS ||
+                     c->numGroups > MMB_MAX_BITS)) {
+            DEBUG_PRINTF("Castle NFA[%u] counts too large: repeats=%u "
+                         "groups=%u\n", qi, c->numRepeats, c->numGroups);
+            return HS_INVALID;
+        }
+
+        /* The SubCastle array follows the Castle header; getSubCastle()
+         * indexes it with any top < numRepeats. */
+        u64a sub_end = (u64a)sizeof(struct Castle) +
+                       (u64a)c->numRepeats * sizeof(struct SubCastle);
+        if (unlikely(sub_end > body_size)) {
+            DEBUG_PRINTF("Castle NFA[%u] SubCastle array OOB: end=%llu "
+                         "body=%u\n", qi, sub_end, body_size);
+            return HS_INVALID;
+        }
+
+        /* "active repeats" multibit, cleared unless every subcastle is
+         * exclusive. */
+        if (c->exclusive != PURE_EXCLUSIVE) {
+            u64a active_end = (u64a)c->activeOffset +
+                              (u64a)rt_mmbit_size(c->numRepeats);
+            if (unlikely(active_end > stream_size)) {
+                DEBUG_PRINTF("Castle NFA[%u] active multibit OOB: offset=%u "
+                             "repeats=%u end=%llu stream=%u\n",
+                             qi, c->activeOffset, c->numRepeats, active_end,
+                             stream_size);
+                return HS_INVALID;
+            }
+        }
+
+        if (c->exclusive) {
+            /* "active exclusive groups" multibit. */
+            u64a group_end = (u64a)c->groupIterOffset +
+                             (u64a)rt_mmbit_size(c->numGroups);
+            if (unlikely(group_end > stream_size)) {
+                DEBUG_PRINTF("Castle NFA[%u] group multibit OOB: offset=%u "
+                             "groups=%u end=%llu stream=%u\n",
+                             qi, c->groupIterOffset, c->numGroups, group_end,
+                             stream_size);
+                return HS_INVALID;
+            }
+        }
+
+        const struct SubCastle *subs =
+            (const struct SubCastle *)((const char *)c + sizeof(struct Castle));
+
+        for (u32 i = 0; i < c->numRepeats; i++) {
+            const struct SubCastle *sub = &subs[i];
+
+            /* getRepeatInfo(): repeatInfoOffset is relative to the SubCastle;
+             * the RepeatInfo must lie inside the Castle body. */
+            u64a sub_pos = (u64a)sizeof(struct Castle) +
+                           (u64a)i * sizeof(struct SubCastle);
+            u64a info_end = sub_pos + sub->repeatInfoOffset +
+                            sizeof(struct RepeatInfo);
+            if (unlikely(info_end > body_size)) {
+                DEBUG_PRINTF("Castle NFA[%u] SubCastle[%u] repeatInfoOffset "
+                             "OOB: offset=%u end=%llu body=%u\n", qi, i,
+                             sub->repeatInfoOffset, info_end, body_size);
+                return HS_INVALID;
+            }
+            const struct RepeatInfo *info = (const struct RepeatInfo *)
+                ((const char *)sub + sub->repeatInfoOffset);
+
+            /* Runtime accesses packedCtrlSize + stateSize bytes at
+             * q->streamState + streamStateOffset. */
+            u64a state_end = (u64a)sub->streamStateOffset +
+                             info->packedCtrlSize + info->stateSize;
+            if (unlikely(state_end > stream_size)) {
+                DEBUG_PRINTF("Castle NFA[%u] SubCastle[%u] stream state OOB: "
+                             "offset=%u ctrl=%u state=%u end=%llu stream=%u\n",
+                             qi, i, sub->streamStateOffset,
+                             info->packedCtrlSize, info->stateSize, state_end,
+                             stream_size);
+                return HS_INVALID;
+            }
+
+            if (!c->exclusive) {
+                continue;
+            }
+
+            /* castleProcessTop() takes the exclusive branch when exclusiveId
+             * < numRepeats, then uses that id both as an mmbit key over
+             * numGroups bits and as an activeIdxSize-scaled offset into stream
+             * state. The compiler's invariant is exclusiveId < numGroups. */
+            u32 ex_id = sub->exclusiveId;
+            if (ex_id >= c->numRepeats) {
+                continue; /* not an exclusive subcastle */
+            }
+            if (unlikely(ex_id >= c->numGroups)) {
+                DEBUG_PRINTF("Castle NFA[%u] SubCastle[%u] exclusiveId %u >= "
+                             "numGroups %u\n", qi, i, ex_id, c->numGroups);
+                return HS_INVALID;
+            }
+            u64a idx_end = (u64a)ex_id * c->activeIdxSize + c->activeIdxSize;
+            if (unlikely(idx_end > stream_size)) {
+                DEBUG_PRINTF("Castle NFA[%u] SubCastle[%u] active index OOB: "
+                             "end=%llu stream=%u\n", qi, i, idx_end,
+                             stream_size);
+                return HS_INVALID;
+            }
+        }
+    }
+
+    return HS_SUCCESS;
+}
+
+/**
  * \brief Validate Noodle matcher table fields.
  *
  * The Noodle literal matcher computes buffer load addresses using:
@@ -581,6 +759,15 @@ hs_error_t db_validate_noodle_table(const struct RoseEngine *rose,
 
         const struct noodTable *nood =
             (const struct noodTable *)(base + off + nood_rel);
+
+        /* nood->id is the Rose program offset the interpreter
+         * jumps to on a literal match. Full program decoding happens in
+         * db_validate_rose_programs(); reject the trivially bad values here. */
+        if (unlikely(nood->id == 0 || nood->id >= rose_size)) {
+            DEBUG_PRINTF("noodTable id invalid: %u (rose_size=%u)\n",
+                         nood->id, rose_size);
+            return HS_INVALID;
+        }
 
         /* msk_len must be in [1, 8] */
         if (unlikely(nood->msk_len == 0 || nood->msk_len > 8)) {
@@ -1567,6 +1754,792 @@ hs_error_t db_validate_mpv_offsets(const struct RoseEngine *rose,
 }
 
 /**
+ * \brief Validate McClellan/Gough/Castle NFA engine fields.
+ *
+ * McClellan, Gough, and Castle NFA engines contain multiple fields that are
+ * used to calculate memory offsets during pattern matching. A forged database
+ * can set these fields to invalid values, causing out-of-bounds reads or writes.
+ *
+ * The critical field alphaShift is used in state lookup: offset = base + (state << alphaShift).
+ * If alphaShift > 8, this shifts by more than 8 bits, creating offsets larger than
+ * 256 times the state index. For large state indices, this can extend beyond allocated
+ * memory. The safe maximum is 8 (alphabet size of 256).
+ *
+ * This function iterates every NFA engine in the RoseEngine and, for each
+ * McClellan-type engine, validates that all critical fields are within bounds.
+ */
+static
+hs_error_t db_validate_mcclellan_like_engines(const struct RoseEngine *rose,
+                                               u32 rose_size) {
+    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose_size) {
+        return HS_SUCCESS; /* no NFA engines */
+    }
+
+    const char *rose_base = (const char *)rose;
+    const struct NfaInfo *infos =
+        (const struct NfaInfo *)(rose_base + rose->nfaInfoOffset);
+
+    for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        if (unlikely((const char *)(&infos[qi + 1]) > rose_base + rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NfaInfo *ni = &infos[qi];
+        if (!ni->nfaOffset || ni->nfaOffset >= rose_size) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + sizeof(struct NFA) > rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NFA *nfa =
+            (const struct NFA *)(rose_base + ni->nfaOffset);
+
+        /* Castle has a different struct layout; only mcclellan/gough share it. */
+        if (!isMcClellanType(nfa->type) && !isGoughType(nfa->type)) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + nfa->length > rose_size)) {
+            DEBUG_PRINTF("mcclellan-like[%u] NFA body out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        /* Require the full McClellan header since code reads offset 304. */
+        if (unlikely(nfa->length < sizeof(struct NFA) + MCCLELLAN_HEADER_SIZE)) {
+            DEBUG_PRINTF("mcclellan-like[%u] NFA too small for mcclellan header\n", qi);
+            return HS_INVALID;
+        }
+
+        /* Access McClellan fields using offsets to avoid struct conflicts */
+        const char *m_base = (const char *)nfa + sizeof(struct NFA);
+        u32 nfa_len = nfa->length;
+
+        /* state_count at offset 0 (u16) */
+        u16 state_count = unaligned_load_u16((const u8 *)m_base + 0);
+
+        if (unlikely(state_count == 0)) {
+            DEBUG_PRINTF("mcclellan-like[%u] state_count is zero\n", qi);
+            return HS_INVALID;
+        }
+
+        /* start_anchored at offset 8 (u16) */
+        u16 start_anchored = unaligned_load_u16((const u8 *)m_base + 8);
+        if (unlikely(start_anchored >= state_count)) {
+            DEBUG_PRINTF("mcclellan-like[%u] start_anchored %u >= state_count %u\n",
+                         qi, start_anchored, state_count);
+            return HS_INVALID;
+        }
+
+        /* start_floating at offset 10 (u16) */
+        u16 start_floating = unaligned_load_u16((const u8 *)m_base + 10);
+        if (unlikely(start_floating >= state_count)) {
+            DEBUG_PRINTF("mcclellan-like[%u] start_floating %u >= state_count %u\n",
+                         qi, start_floating, state_count);
+            return HS_INVALID;
+        }
+
+        /* alphaShift at offset 32 (u8) — capped at 8 by getAlphaShift(). */
+        u8 alphaShift = *(const u8 *)(m_base + 32);
+        if (unlikely(alphaShift > 8)) {
+            DEBUG_PRINTF("mcclellan-like[%u] alphaShift %u > 8\n", qi, alphaShift);
+            return HS_INVALID;
+        }
+
+        /* wide_limit at offset 30 (u16). has_wide at offset 33 (u8).
+         * aux_offset at offset 12 (u32) — relative to start of NFA.
+         * aux entry count depends on has_wide flag. For wide engines (has_wide=1),
+         * aux array has wide_limit entries; for non-wide, it has state_count entries. */
+        u32 aux_offset = unaligned_load_u32((const u8 *)m_base + 12);
+        u16 wide_limit = unaligned_load_u16((const u8 *)m_base + 30);
+        if (unlikely(wide_limit > state_count)) {
+            DEBUG_PRINTF("mcclellan-like[%u] wide_limit %u > state_count %u\n",
+                         qi, wide_limit, state_count);
+            return HS_INVALID;
+        }
+        
+        u8 has_wide = *(const u8 *)(m_base + 33);
+        
+        if (aux_offset) {
+            /* Use wide_limit only if has_wide is set; otherwise use state_count. */
+            u32 aux_entries = has_wide ? wide_limit : state_count;
+            /* sizeof(struct mstate_aux) is 16 (u32+u32+u16+pad+u32). */
+            u64a aux_end = (u64a)aux_offset + (u64a)aux_entries * 16;
+            if (unlikely(aux_offset < sizeof(struct NFA) ||
+                         aux_end > nfa_len)) {
+                DEBUG_PRINTF("mcclellan-like[%u] aux table out of bounds: "
+                             "offset=%u entries=%u end=%llu > nfa_len=%u\n",
+                             qi, aux_offset, aux_entries, aux_end, nfa_len);
+                return HS_INVALID;
+            }
+            
+            /* Validate accel_offset in each aux entry. */
+            const struct mstate_aux *aux_base = 
+                (const struct mstate_aux *)(rose_base + ni->nfaOffset + aux_offset);
+            for (u32 i = 0; i < aux_entries; i++) {
+                u32 entry_accel_offset = aux_base[i].accel_offset;
+                if (entry_accel_offset) {
+                    u64a abs_accel = (u64a)ni->nfaOffset +
+                                     (u64a)sizeof(struct NFA) +
+                                     (u64a)entry_accel_offset;
+                    /* Accel structure is ~24 bytes; require full fit. */
+                    if (unlikely(abs_accel + 24 > ni->nfaOffset + nfa_len)) {
+                        DEBUG_PRINTF("mcclellan-like[%u] aux[%u] accel_offset %u out of bounds\n",
+                                     qi, i, entry_accel_offset);
+                        return HS_INVALID;
+                    }
+                }
+            }
+        }
+
+        /* sherman_offset at offset 16 (u32) */
+        u32 sherman_offset = unaligned_load_u32((const u8 *)m_base + 16);
+        if (sherman_offset) {
+            if (unlikely(sherman_offset < sizeof(struct NFA) ||
+                         sherman_offset > nfa_len)) {
+                DEBUG_PRINTF("mcclellan-like[%u] sherman_offset %u out of bounds (nfa_len=%u)\n",
+                             qi, sherman_offset, nfa_len);
+                return HS_INVALID;
+            }
+        }
+
+        /* sherman_end at offset 20 (u32) */
+        u32 sherman_end = unaligned_load_u32((const u8 *)m_base + 20);
+        if (sherman_end) {
+            if (unlikely(sherman_end > nfa_len)) {
+                DEBUG_PRINTF("mcclellan-like[%u] sherman_end %u > nfa_len %u\n",
+                             qi, sherman_end, nfa_len);
+                return HS_INVALID;
+            }
+        }
+
+        /* sherman_limit at offset 28 (u16) — lowest sherman state; must not
+         * exceed state_count. */
+        u16 sherman_limit = unaligned_load_u16((const u8 *)m_base + 28);
+        if (unlikely(sherman_limit > state_count)) {
+            DEBUG_PRINTF("mcclellan-like[%u] sherman_limit %u > state_count %u\n",
+                         qi, sherman_limit, state_count);
+            return HS_INVALID;
+        }
+
+        /* wide_offset at offset 304 (u32) — relative to start of NFA. */
+        u32 wide_offset = unaligned_load_u32((const u8 *)m_base + 304);
+        if (wide_offset) {
+            if (unlikely(wide_offset < sizeof(struct NFA) ||
+                         wide_offset > nfa_len)) {
+                DEBUG_PRINTF("mcclellan-like[%u] wide_offset %u out of bounds (nfa_len=%u)\n",
+                             qi, wide_offset, nfa_len);
+                return HS_INVALID;
+            }
+        }
+
+        /* accel_offset at offset 296 (u32) — relative to start of mcclellan. */
+        u32 accel_offset = unaligned_load_u32((const u8 *)m_base + 296);
+        if (accel_offset) {
+            u64a abs_offset = (u64a)ni->nfaOffset +
+                              (u64a)sizeof(struct NFA) +
+                              (u64a)accel_offset;
+            if (unlikely(abs_offset > rose_size)) {
+                DEBUG_PRINTF("mcclellan-like[%u] accel_offset %u out of bounds\n",
+                             qi, accel_offset);
+                return HS_INVALID;
+            }
+        }
+
+        /* Successor table follows the mcclellan header (mcclellancompile.cpp):
+         * 8-bit: u8 x (1 << alphaShift) x state_count;
+         * 16-bit: u16 x (1 << alphaShift) x sherman_limit. */
+        int is8 = nfa->type == MCCLELLAN_NFA_8 || nfa->type == GOUGH_NFA_8;
+        u32 succ_rows = is8 ? state_count : sherman_limit;
+        u64a succ_size = (u64a)(1u << alphaShift) * succ_rows *
+                         (is8 ? sizeof(u8) : sizeof(u16));
+        u64a succ_start = sizeof(struct NFA) + MCCLELLAN_HEADER_SIZE;
+        u64a succ_end = succ_start + succ_size;
+        if (unlikely(succ_end > nfa_len)) {
+            DEBUG_PRINTF("mcclellan-like[%u] successor table out of bounds: "
+                         "size=%llu end=%llu nfa_len=%u\n",
+                         qi, succ_size, succ_end, nfa_len);
+            return HS_INVALID;
+        }
+
+        /* For Gough engines, validate gough_info and the SOM slot count.
+         *
+         * compSomSpace()/expandSomSpace() loop over stream_som_loc_count
+         * slots: compressed slots of stream_som_loc_width bytes in stream
+         * state (after a 1-byte GOUGH_NFA_8 / 2-byte GOUGH_NFA_16 DFA state),
+         * and u64a slots in scratch state after a 16-byte prefix. Mirrors the
+         * layout produced by goughCompile().
+         */
+        if (isGoughType(nfa->type)) {
+            /* haig_offset is NFA-relative; goughCompile() always sets it and
+             * get_gough() dereferences it unconditionally. */
+            u32 haig_offset = unaligned_load_u32(
+                (const u8 *)m_base + MCCLELLAN_HAIG_OFFSET_POS);
+            if (unlikely(haig_offset < sizeof(struct NFA) +
+                                           MCCLELLAN_HEADER_SIZE ||
+                         haig_offset % GOUGH_INFO_ALIGN ||
+                         (u64a)haig_offset + GOUGH_INFO_SIZE > nfa_len)) {
+                DEBUG_PRINTF("gough[%u] invalid haig_offset=%u nfa_len=%u\n",
+                             qi, haig_offset, nfa_len);
+                return HS_INVALID;
+            }
+
+            const u8 *gi = (const u8 *)nfa + haig_offset;
+            u32 som_count =
+                unaligned_load_u32(gi + GOUGH_INFO_SOM_LOC_COUNT_POS);
+            u8 som_width = gi[GOUGH_INFO_SOM_LOC_WIDTH_POS];
+
+            /* compressSomValue()/expandSomValue() only handle 2, 4 and 8.
+             * Block mode never compresses stream state and is built with 0. */
+            int width_ok = som_width == 2 || som_width == 4 || som_width == 8 ||
+                           (som_width == 0 && rose->mode == HS_MODE_BLOCK);
+            if (unlikely(!width_ok)) {
+                DEBUG_PRINTF("gough[%u] unsupported stream_som_loc_width %u\n",
+                             qi, som_width);
+                return HS_INVALID;
+            }
+
+            u32 base_state_size = nfa->type == GOUGH_NFA_8 ? 1 : 2;
+            u64a stream_needed = base_state_size +
+                                 (u64a)som_count * som_width;
+            if (unlikely(stream_needed > nfa->streamStateSize)) {
+                DEBUG_PRINTF("gough[%u] stream SOM slots OOB: count=%u "
+                             "width=%u need=%llu streamStateSize=%u\n",
+                             qi, som_count, som_width, stream_needed,
+                             nfa->streamStateSize);
+                return HS_INVALID;
+            }
+
+            u64a scratch_needed = 16 + (u64a)som_count * sizeof(u64a);
+            if (unlikely(scratch_needed > nfa->scratchStateSize)) {
+                DEBUG_PRINTF("gough[%u] scratch SOM slots OOB: count=%u "
+                             "need=%llu scratchStateSize=%u\n",
+                             qi, som_count, scratch_needed,
+                             nfa->scratchStateSize);
+                return HS_INVALID;
+            }
+        }
+    }
+
+    return HS_SUCCESS;
+}
+/**
+ * Validate LeftNfaInfo.lagIndex bounds to prevent OOB write.
+ *
+ * LeftNfaInfo.lagIndex is used as a raw index into the leftfixLagTable in the
+ * stream state during storeRoseDelay() → ensureStreamNeatAndTidy() call path.
+ * On every hs_scan_stream() + hs_close_stream(), each leftfix entry indexes:
+ *
+ *   leftfixDelay[di] = loc;  // where di = left->lagIndex
+ *
+ * A forged database can set lagIndex to arbitrary values, causing OOB heap writes
+ * at attacker-chosen addresses. The table size is stateOffsets.end - stateOffsets.leftfixLagTable
+ * bytes, which is an upper bound on valid lagIndex values.
+ *
+ * Valid lagIndex values:
+ * - ROSE_OFFSET_INVALID (0xFFFFFFFF) → entry is not used
+ * - < (stateOffsets.end - stateOffsets.leftfixLagTable) → within lag table bounds
+ *
+ * Applies to HS_MODE_STREAM only (lagIndex field only set for streaming mode).
+ */
+static
+hs_error_t db_validate_leftfix_lag_index(const struct RoseEngine *rose,
+                                         u32 rose_size) {
+    // lagIndex is only used in streaming mode
+    if (rose->mode != HS_MODE_STREAM) {
+        return HS_SUCCESS;
+    }
+
+    u32 activeLeftCount = rose->activeLeftCount;
+    
+    // Reject missing left table when active count is nonzero
+    if (!rose->leftOffset) {
+        if (unlikely(activeLeftCount > 0)) {
+            DEBUG_PRINTF("activeLeftCount=%u but leftOffset=0\n", activeLeftCount);
+            return HS_INVALID;
+        }
+        return HS_SUCCESS;
+    }
+    
+    if (unlikely(rose->leftOffset >= rose_size)) {
+        return HS_INVALID;
+    }
+
+    const char *rose_base = (const char *)rose;
+
+    // leftOffset is a byte offset into the blob: it only needs to satisfy the
+    // natural alignment of LeftNfaInfo, not be a multiple of its size.
+    if (unlikely(rose->leftOffset % alignof(struct LeftNfaInfo) != 0)) {
+        DEBUG_PRINTF("leftOffset=%u misaligned for LeftNfaInfo\n",
+                     rose->leftOffset);
+        return HS_INVALID;
+    }
+    
+    // Compute the bounds of the leftfixLagTable
+    // The table has one byte per lagged leftfix and is followed immediately
+    // by anchorState in the stream state layout.
+    u32 leftfixLagTable = rose->stateOffsets.leftfixLagTable;
+    u32 lag_table_end = rose->stateOffsets.anchorState;
+
+    if (unlikely(lag_table_end < leftfixLagTable ||
+                 lag_table_end > rose->stateOffsets.end)) {
+        DEBUG_PRINTF("leftfixLagTable bounds invalid: [%u,%u) end=%u\n",
+                     leftfixLagTable, lag_table_end, rose->stateOffsets.end);
+        return HS_INVALID;
+    }
+
+    u32 lag_table_size = lag_table_end - leftfixLagTable;
+    
+    // leftfixBeginQueue through leftfixBeginQueue + activeLeftCount form the range
+    // of active leftfixes
+    u32 leftfixBeginQueue = rose->leftfixBeginQueue;
+    
+    if (unlikely(leftfixBeginQueue > rose->queueCount)) {
+        DEBUG_PRINTF("leftfixBeginQueue out of range: %u > queueCount %u\n",
+                     leftfixBeginQueue, rose->queueCount);
+        return HS_INVALID;
+    }
+    
+    if (unlikely(leftfixBeginQueue + activeLeftCount > rose->queueCount)) {
+        DEBUG_PRINTF("leftfixBeginQueue + activeLeftCount out of range: "
+                     "%u + %u > queueCount %u\n",
+                     leftfixBeginQueue, activeLeftCount, rose->queueCount);
+        return HS_INVALID;
+    }
+    
+    // Avoid out-of-bounds pointer arithmetic in table bounds checks
+    // Compute the full table end with widened integer offsets before the loop
+    u64a table_end = rose->leftOffset + (u64a)activeLeftCount * sizeof(struct LeftNfaInfo);
+    if (unlikely(table_end > rose_size)) {
+        DEBUG_PRINTF("LeftNfaInfo table out of bounds: end=%llu > rose_size=%u\n",
+                     table_end, rose_size);
+        return HS_INVALID;
+    }
+    
+    const struct LeftNfaInfo *left_table =
+        (const struct LeftNfaInfo *)(rose_base + rose->leftOffset);
+    
+    // Validate each active leftfix entry
+    for (u32 i = 0; i < activeLeftCount; i++) {
+        u32 qi = leftfixBeginQueue + i;
+        (void)qi; /* used only in DEBUG_PRINTF */
+
+        const struct LeftNfaInfo *left = &left_table[i];
+        u32 lagIndex = left->lagIndex;
+        
+        // lagIndex must be either ROSE_OFFSET_INVALID or within lag_table_size
+        if (lagIndex != ROSE_OFFSET_INVALID && lagIndex >= lag_table_size) {
+            DEBUG_PRINTF("LeftNfaInfo[%u].lagIndex out of bounds: "
+                         "lagIndex=%u >= lag_table_size=%u\n",
+                         qi, lagIndex, lag_table_size);
+            return HS_INVALID;
+        }
+    }
+    
+    DEBUG_PRINTF("leftfix lag index validation passed (%u entries)\n", activeLeftCount);
+    return HS_SUCCESS;
+}
+
+/**
+ * \brief Validate SmallWriteEngine embedded NFA type.
+ *
+ * SmallWriteEngine contains an embedded NFA structure immediately after its
+ * header. The NFA type must be one of the valid DFA types (MCCLELLAN_NFA_8 or
+ * MCCLELLAN_NFA_16). Other types would cause type confusion at runtime in
+ * runSmallWriteEngine(), which dispatches based on nfa->type:
+ *   - if (nfa->type == MCCLELLAN_NFA_8) -> nfaExecMcClellan8_B()
+ *   - else if (nfa->type == MCCLELLAN_NFA_16) -> nfaExecMcClellan16_B()
+ *   - else -> nfaExecSheng_B() (catch-all, type confusion if type is forged)
+ *
+ * Validates:
+ * 1. SmallWriteEngine offset is within rose_size
+ * 2. Embedded NFA has valid type (MCCLELLAN_NFA_8 or MCCLELLAN_NFA_16)
+ * 3. NFA length is reasonable and entire NFA fits within rose_size
+ *
+ * \param rose RoseEngine structure
+ * \param rose_size Total size of rose engine blob
+ * \return HS_SUCCESS if valid, HS_INVALID if forged/invalid
+ */
+static
+hs_error_t db_validate_smallwrite_nfa(const struct RoseEngine *rose,
+                                      u32 rose_size) {
+    // If no SmallWriteEngine, validation passes
+    if (!rose->smallWriteOffset) {
+        return HS_SUCCESS;
+    }
+
+    // Validate SmallWriteEngine offset is within bounds
+    if (unlikely(rose->smallWriteOffset >= rose_size)) {
+        DEBUG_PRINTF("smallWriteOffset out of bounds: %u >= %u\n",
+                     rose->smallWriteOffset, rose_size);
+        return HS_INVALID;
+    }
+
+    // Get pointer to SmallWriteEngine and its embedded NFA
+    const struct SmallWriteEngine *smwr =
+        (const struct SmallWriteEngine *)((const char *)rose +
+                                         rose->smallWriteOffset);
+    const struct NFA *nfa = (const struct NFA *)((const char *)smwr +
+                                                 sizeof(*smwr));
+
+    // Ensure NFA pointer is still within rose_size
+    u64a nfa_start = rose->smallWriteOffset + sizeof(*smwr);
+    if (unlikely(nfa_start + sizeof(struct NFA) > rose_size)) {
+        DEBUG_PRINTF("SmallWriteEngine NFA header out of bounds: "
+                     "offset=%u + sizeof(SmallWriteEngine)=%u "
+                     "+ sizeof(NFA)=%u > rose_size=%u\n",
+                     rose->smallWriteOffset, (u32)sizeof(*smwr),
+                     (u32)sizeof(struct NFA), rose_size);
+        return HS_INVALID;
+    }
+
+    // Validate NFA type is one of the valid DFA types for SmallWriteEngine
+    if (unlikely(nfa->type != MCCLELLAN_NFA_8 &&
+                 nfa->type != MCCLELLAN_NFA_16)) {
+        DEBUG_PRINTF("SmallWriteEngine NFA type invalid: %u "
+                     "(must be MCCLELLAN_NFA_8=%u or MCCLELLAN_NFA_16=%u)\n",
+                     nfa->type, MCCLELLAN_NFA_8, MCCLELLAN_NFA_16);
+        return HS_INVALID;
+    }
+
+    // Validate NFA length is reasonable (at least as large as NFA header)
+    if (unlikely(nfa->length < sizeof(struct NFA))) {
+        DEBUG_PRINTF("SmallWriteEngine NFA length too small: %u\n",
+                     nfa->length);
+        return HS_INVALID;
+    }
+
+    // Validate entire NFA fits within rose_size
+    u64a nfa_end = nfa_start + nfa->length;
+    if (unlikely(nfa_end > rose_size)) {
+        DEBUG_PRINTF("SmallWriteEngine NFA out of bounds: "
+                     "start=%llu length=%u end=%llu > rose_size=%u\n",
+                     nfa_start, nfa->length, nfa_end, rose_size);
+        return HS_INVALID;
+    }
+
+    return HS_SUCCESS;
+}
+
+/**
+ * \brief Size in bytes of a Rose instruction, or 0 if the opcode is unknown.
+ *
+ * Mirrors the interpreter's PROGRAM_NEXT_INSTRUCTION step, which advances by
+ * ROUNDUP_N(sizeof(struct ROSE_STRUCT_<op>), ROSE_INSTR_MIN_ALIGN). A switch
+ * avoids C99 designated initializers (used nowhere else in this tree) and is
+ * fail-closed: an opcode added without a case here returns 0 and the database
+ * is rejected rather than mis-parsed.
+ */
+#define ROSE_INSTR_SIZE_CASE(name)                                            \
+    case ROSE_INSTR_##name:                                                   \
+        return ROUNDUP_N(sizeof(struct ROSE_STRUCT_##name),                   \
+                         ROSE_INSTR_MIN_ALIGN)
+
+static
+u32 rose_instr_size(u8 code) {
+    switch (code) {
+    ROSE_INSTR_SIZE_CASE(END);
+    ROSE_INSTR_SIZE_CASE(ANCHORED_DELAY);
+    ROSE_INSTR_SIZE_CASE(CHECK_LIT_EARLY);
+    ROSE_INSTR_SIZE_CASE(CHECK_GROUPS);
+    ROSE_INSTR_SIZE_CASE(CHECK_ONLY_EOD);
+    ROSE_INSTR_SIZE_CASE(CHECK_BOUNDS);
+    ROSE_INSTR_SIZE_CASE(CHECK_NOT_HANDLED);
+    ROSE_INSTR_SIZE_CASE(CHECK_SINGLE_LOOKAROUND);
+    ROSE_INSTR_SIZE_CASE(CHECK_LOOKAROUND);
+    ROSE_INSTR_SIZE_CASE(CHECK_MASK);
+    ROSE_INSTR_SIZE_CASE(CHECK_MASK_32);
+    ROSE_INSTR_SIZE_CASE(CHECK_BYTE);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_16x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_32x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_16x16);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_32x16);
+    ROSE_INSTR_SIZE_CASE(CHECK_INFIX);
+    ROSE_INSTR_SIZE_CASE(CHECK_PREFIX);
+    ROSE_INSTR_SIZE_CASE(PUSH_DELAYED);
+    ROSE_INSTR_SIZE_CASE(DUMMY_NOP);
+    ROSE_INSTR_SIZE_CASE(CATCH_UP);
+    ROSE_INSTR_SIZE_CASE(CATCH_UP_MPV);
+    ROSE_INSTR_SIZE_CASE(SOM_ADJUST);
+    ROSE_INSTR_SIZE_CASE(SOM_LEFTFIX);
+    ROSE_INSTR_SIZE_CASE(SOM_FROM_REPORT);
+    ROSE_INSTR_SIZE_CASE(SOM_ZERO);
+    ROSE_INSTR_SIZE_CASE(TRIGGER_INFIX);
+    ROSE_INSTR_SIZE_CASE(TRIGGER_SUFFIX);
+    ROSE_INSTR_SIZE_CASE(DEDUPE);
+    ROSE_INSTR_SIZE_CASE(DEDUPE_SOM);
+    ROSE_INSTR_SIZE_CASE(REPORT_CHAIN);
+    ROSE_INSTR_SIZE_CASE(REPORT_SOM_INT);
+    ROSE_INSTR_SIZE_CASE(REPORT_SOM_AWARE);
+    ROSE_INSTR_SIZE_CASE(REPORT);
+    ROSE_INSTR_SIZE_CASE(REPORT_EXHAUST);
+    ROSE_INSTR_SIZE_CASE(REPORT_SOM);
+    ROSE_INSTR_SIZE_CASE(REPORT_SOM_EXHAUST);
+    ROSE_INSTR_SIZE_CASE(DEDUPE_AND_REPORT);
+    ROSE_INSTR_SIZE_CASE(FINAL_REPORT);
+    ROSE_INSTR_SIZE_CASE(CHECK_EXHAUSTED);
+    ROSE_INSTR_SIZE_CASE(CHECK_MIN_LENGTH);
+    ROSE_INSTR_SIZE_CASE(SET_STATE);
+    ROSE_INSTR_SIZE_CASE(SET_GROUPS);
+    ROSE_INSTR_SIZE_CASE(SQUASH_GROUPS);
+    ROSE_INSTR_SIZE_CASE(CHECK_STATE);
+    ROSE_INSTR_SIZE_CASE(SPARSE_ITER_BEGIN);
+    ROSE_INSTR_SIZE_CASE(SPARSE_ITER_NEXT);
+    ROSE_INSTR_SIZE_CASE(SPARSE_ITER_ANY);
+    ROSE_INSTR_SIZE_CASE(ENGINES_EOD);
+    ROSE_INSTR_SIZE_CASE(SUFFIXES_EOD);
+    ROSE_INSTR_SIZE_CASE(MATCHER_EOD);
+    ROSE_INSTR_SIZE_CASE(CHECK_LONG_LIT);
+    ROSE_INSTR_SIZE_CASE(CHECK_LONG_LIT_NOCASE);
+    ROSE_INSTR_SIZE_CASE(CHECK_MED_LIT);
+    ROSE_INSTR_SIZE_CASE(CHECK_MED_LIT_NOCASE);
+    ROSE_INSTR_SIZE_CASE(CLEAR_WORK_DONE);
+    ROSE_INSTR_SIZE_CASE(MULTIPATH_LOOKAROUND);
+    ROSE_INSTR_SIZE_CASE(CHECK_MULTIPATH_SHUFTI_16x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_MULTIPATH_SHUFTI_32x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_MULTIPATH_SHUFTI_32x16);
+    ROSE_INSTR_SIZE_CASE(CHECK_MULTIPATH_SHUFTI_64);
+    ROSE_INSTR_SIZE_CASE(INCLUDED_JUMP);
+    ROSE_INSTR_SIZE_CASE(SET_LOGICAL);
+    ROSE_INSTR_SIZE_CASE(SET_COMBINATION);
+    ROSE_INSTR_SIZE_CASE(FLUSH_COMBINATION);
+    ROSE_INSTR_SIZE_CASE(SET_EXHAUST);
+    ROSE_INSTR_SIZE_CASE(LAST_FLUSH_COMBINATION);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_64x8);
+    ROSE_INSTR_SIZE_CASE(CHECK_SHUFTI_64x16);
+    ROSE_INSTR_SIZE_CASE(CHECK_MASK_64);
+    default:
+        return 0;
+    }
+}
+
+#undef ROSE_INSTR_SIZE_CASE
+
+/**
+ * \brief Walk a Rose program and validate its structure and key operands.
+ *
+ * instruction operands that index runtime arrays (SET_STATE,
+ * CHECK_STATE, SPARSE_ITER_*) must be bounded, otherwise a forged database
+ * yields OOB accesses in the interpreter.
+ *
+ * an arbitrary but in-bounds program offset (e.g. a forged
+ * noodTable->id) drops the interpreter onto garbage. Requiring the program to
+ * decode cleanly and terminate at ROSE_INSTR_END rejects such offsets.
+ *
+ * \param rose RoseEngine structure.
+ * \param rose_size Total size of the rose engine blob.
+ * \param prog_offset Program entry point, relative to \a rose.
+ */
+static
+hs_error_t db_validate_program_at(const struct RoseEngine *rose, u32 rose_size,
+                                  u32 prog_offset) {
+    const char *base = (const char *)rose;
+
+    if (!prog_offset) {
+        return HS_SUCCESS; /* absent program */
+    }
+    if (unlikely(prog_offset >= rose_size)) {
+        DEBUG_PRINTF("program offset %u out of bounds\n", prog_offset);
+        return HS_INVALID;
+    }
+    /* Programs are emitted after the RoseEngine header and are instruction
+     * aligned; an offset violating either cannot be a real entry point. */
+    if (unlikely(prog_offset < sizeof(struct RoseEngine) ||
+                 prog_offset % ROSE_INSTR_MIN_ALIGN)) {
+        DEBUG_PRINTF("program offset %u is not a valid entry point\n",
+                     prog_offset);
+        return HS_INVALID;
+    }
+
+    u32 pc = prog_offset;
+    /* Bound the walk: every step consumes at least ROSE_INSTR_MIN_ALIGN
+     * bytes, so the program cannot have more instructions than that. */
+    u32 max_steps = rose_size / ROSE_INSTR_MIN_ALIGN + 1;
+
+    for (u32 step = 0; step < max_steps; step++) {
+        if (unlikely(pc >= rose_size)) {
+            DEBUG_PRINTF("program ran off the end at pc=%u\n", pc);
+            return HS_INVALID;
+        }
+
+        u8 code = (u8)base[pc];
+        if (unlikely(code > LAST_ROSE_INSTRUCTION)) {
+            DEBUG_PRINTF("bad opcode %u at pc=%u\n", code, pc);
+            return HS_INVALID;
+        }
+
+        u32 isize = rose_instr_size(code);
+        if (unlikely(!isize)) {
+            DEBUG_PRINTF("unknown instruction size for opcode %u\n", code);
+            return HS_INVALID;
+        }
+        /* Keeps pc instruction-aligned, so the casts below are well-defined on
+         * strict-alignment targets. */
+        if (unlikely(isize % ROSE_INSTR_MIN_ALIGN)) {
+            DEBUG_PRINTF("instruction %u size %u breaks alignment\n",
+                         code, isize);
+            return HS_INVALID;
+        }
+        if (unlikely((u64a)pc + isize > rose_size)) {
+            DEBUG_PRINTF("instruction %u at pc=%u overruns rose_size\n",
+                         code, pc);
+            return HS_INVALID;
+        }
+
+        switch (code) {
+        case ROSE_INSTR_END:
+            return HS_SUCCESS;
+
+        case ROSE_INSTR_SET_STATE: {
+            const struct ROSE_STRUCT_SET_STATE *ri =
+                (const struct ROSE_STRUCT_SET_STATE *)(base + pc);
+            if (unlikely(ri->index >= rose->rolesWithStateCount)) {
+                DEBUG_PRINTF("SET_STATE index %u >= rolesWithStateCount %u\n",
+                             ri->index, rose->rolesWithStateCount);
+                return HS_INVALID;
+            }
+            break;
+        }
+        case ROSE_INSTR_CHECK_STATE: {
+            const struct ROSE_STRUCT_CHECK_STATE *ri =
+                (const struct ROSE_STRUCT_CHECK_STATE *)(base + pc);
+            if (unlikely(ri->index >= rose->rolesWithStateCount)) {
+                DEBUG_PRINTF("CHECK_STATE index %u >= rolesWithStateCount %u\n",
+                             ri->index, rose->rolesWithStateCount);
+                return HS_INVALID;
+            }
+            break;
+        }
+        case ROSE_INSTR_SPARSE_ITER_BEGIN: {
+            const struct ROSE_STRUCT_SPARSE_ITER_BEGIN *ri =
+                (const struct ROSE_STRUCT_SPARSE_ITER_BEGIN *)(base + pc);
+            if (unlikely(ri->iter_offset >= rose_size ||
+                         ri->jump_table >= rose_size ||
+                         (ri->fail_jump &&
+                          (u64a)pc + ri->fail_jump > rose_size))) {
+                DEBUG_PRINTF("SPARSE_ITER_BEGIN operands out of bounds\n");
+                return HS_INVALID;
+            }
+            break;
+        }
+        case ROSE_INSTR_SPARSE_ITER_NEXT: {
+            const struct ROSE_STRUCT_SPARSE_ITER_NEXT *ri =
+                (const struct ROSE_STRUCT_SPARSE_ITER_NEXT *)(base + pc);
+            if (unlikely(ri->iter_offset >= rose_size ||
+                         ri->jump_table >= rose_size ||
+                         (ri->fail_jump &&
+                          (u64a)pc + ri->fail_jump > rose_size))) {
+                DEBUG_PRINTF("SPARSE_ITER_NEXT operands out of bounds\n");
+                return HS_INVALID;
+            }
+            break;
+        }
+        case ROSE_INSTR_SPARSE_ITER_ANY: {
+            const struct ROSE_STRUCT_SPARSE_ITER_ANY *ri =
+                (const struct ROSE_STRUCT_SPARSE_ITER_ANY *)(base + pc);
+            if (unlikely(ri->iter_offset >= rose_size ||
+                         (ri->fail_jump &&
+                          (u64a)pc + ri->fail_jump > rose_size))) {
+                DEBUG_PRINTF("SPARSE_ITER_ANY operands out of bounds\n");
+                return HS_INVALID;
+            }
+            break;
+        }
+        default:
+            break;
+        }
+
+        pc += isize;
+    }
+
+    DEBUG_PRINTF("program from %u did not terminate\n", prog_offset);
+    return HS_INVALID;
+}
+
+static
+hs_error_t db_validate_rose_programs(const struct RoseEngine *rose,
+                                     u32 rose_size) {
+    const char *rose_base = (const char *)rose;
+
+    /* Only noodle-type HWLM matchers embed a noodTable at this offset. */
+    u32 fmatcherOffset = rose->fmatcherOffset;
+    if (fmatcherOffset && fmatcherOffset < rose_size &&
+        fmatcherOffset + sizeof(struct HWLM) <= rose_size) {
+        const struct HWLM *hwlm =
+            (const struct HWLM *)(rose_base + fmatcherOffset);
+        if (hwlm->type == HWLM_ENGINE_NOOD) {
+            u32 nood_table_offset =
+                fmatcherOffset + (u32)ROUNDUP_CL(sizeof(struct HWLM));
+            if (nood_table_offset + sizeof(struct noodTable) > rose_size) {
+                DEBUG_PRINTF("noodTable overflow: offset=%u size=%u rose_size=%u\n",
+                             nood_table_offset,
+                             (u32)sizeof(struct noodTable), rose_size);
+                return HS_INVALID;
+            }
+            /* the literal program entry point must decode. */
+            const struct noodTable *nood =
+                (const struct noodTable *)(rose_base + nood_table_offset);
+            if (unlikely(db_validate_program_at(rose, rose_size, nood->id) !=
+                         HS_SUCCESS)) {
+                DEBUG_PRINTF("noodTable id %u is not a valid program\n",
+                             nood->id);
+                return HS_INVALID;
+            }
+        }
+    }
+
+    /* validate the programs reachable from the fixed entry
+     * points, including their state-index and sparse-iterator operands. */
+    const u32 prog_offsets[] = {
+        rose->eodProgramOffset,
+        rose->flushCombProgramOffset,
+        rose->lastFlushCombProgramOffset,
+        rose->boundary.reportEodOffset,
+        rose->boundary.reportZeroOffset,
+        rose->boundary.reportZeroEodOffset,
+    };
+    for (u32 i = 0; i < ARRAY_LENGTH(prog_offsets); i++) {
+        if (unlikely(db_validate_program_at(rose, rose_size,
+                                            prog_offsets[i]) != HS_SUCCESS)) {
+            DEBUG_PRINTF("program %u failed validation\n", i);
+            return HS_INVALID;
+        }
+    }
+
+    /* reportProgramOffset points at a u32 array of program offsets. */
+    if (rose->reportProgramOffset && rose->reportProgramCount) {
+        /* Clamp the untrusted count to the most entries the blob could hold
+         * before it is used as a loop bound. */
+        const u32 max_count = rose_size / (u32)sizeof(u32);
+        if (unlikely(rose->reportProgramCount > max_count)) {
+            DEBUG_PRINTF("report program count too large: %u > %u\n",
+                         rose->reportProgramCount, max_count);
+            return HS_INVALID;
+        }
+        const u32 report_count = rose->reportProgramCount;
+
+        u64a tbl_end = (u64a)rose->reportProgramOffset
+            + (u64a)report_count * sizeof(u32);
+        if (unlikely(tbl_end > rose_size)) {
+            DEBUG_PRINTF("report program table out of bounds\n");
+            return HS_INVALID;
+        }
+        for (u32 i = 0; i < report_count; i++) {
+            u32 off = unaligned_load_u32(rose_base + rose->reportProgramOffset
+                                         + i * sizeof(u32));
+            if (unlikely(db_validate_program_at(rose, rose_size, off) !=
+                         HS_SUCCESS)) {
+                DEBUG_PRINTF("report program %u failed validation\n", i);
+                return HS_INVALID;
+            }
+        }
+    }
+
+    return HS_SUCCESS;
+}
+
+/**
  * Validate RoseEngine offsets to prevent out-of-bounds access (CWE-125).
  * An attacker could craft a malicious serialized database with corrupted
  * offset values and recomputed HMAC. This function validates that all
@@ -1581,8 +2554,8 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
         DEBUG_PRINTF("null rose engine\n");
         return HS_INVALID;
     }
-
-    // Get the total RoseEngine size
+    
+    // Get the size of the RoseEngine structure
     u32 rose_size = rose->size;
 
     // Validate rose_size itself is reasonable
@@ -1591,6 +2564,13 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
                      rose_size, db->length);
         return HS_INVALID;
     }
+
+    /* Validate LeftNfaInfo.lagIndex bounds to prevent OOB write in stream mode */
+    if (unlikely(db_validate_leftfix_lag_index(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("leftfix lagIndex validation failed\n");
+        return HS_INVALID;
+    }
+
 
     // Validate critical offsets that are dereferenced during scanning.
     // Each offset, if non-zero, must be within rose_size bounds.
@@ -1835,6 +2815,12 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
         return HS_INVALID;
     }
 
+    /* Validate Castle NFA stream-state layout. */
+    if (unlikely(db_validate_castle_engines(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("Castle engine validation failed\n");
+        return HS_INVALID;
+    }
+
     /* Validate Noodle matcher table fields. */
     if (unlikely(db_validate_noodle_table(rose, rose_size) != HS_SUCCESS)) {
         DEBUG_PRINTF("Noodle table validation failed\n");
@@ -1846,10 +2832,22 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
         DEBUG_PRINTF("mcsheng successor table validation failed\n");
         return HS_INVALID;
     }
-	
+
+    /* Validate McClellan/Gough DFA engines. */
+    if (unlikely(db_validate_mcclellan_like_engines(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("McClellan-like engine validation failed\n");
+        return HS_INVALID;
+    }
+
     /* Validate MPV active/reporter offsets (CWE-787). */
     if (unlikely(db_validate_mpv_offsets(rose, rose_size) != HS_SUCCESS)) {
         DEBUG_PRINTF("MPV offset validation failed\n");
+        return HS_INVALID;
+    }
+
+    /* Validate SmallWriteEngine embedded NFA type. */
+    if (unlikely(db_validate_smallwrite_nfa(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("SmallWriteEngine NFA validation failed\n");
         return HS_INVALID;
     }
 
@@ -1901,6 +2899,13 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
                          rose->stateOffsets.somWritable, rose->stateOffsets.end);
             return HS_INVALID;
         }
+    }
+
+    // Validate rose program instruction operands.
+    // Even with valid offsets, forged instructions can cause RCE.
+    if (unlikely(db_validate_rose_programs(rose, rose->size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("rose program validation failed\n");
+        return HS_INVALID;
     }
 
     // Unified state layout validation (CWE-122, CWE-190).
@@ -2271,9 +3276,22 @@ hs_error_t dbIsValid(const hs_database_t *db) {
         }
     }
 
+    /* Validate McClellan-like engines (McClellan/Gough), including the Gough
+     * stream_som_loc_count. */
+    if (unlikely(db_validate_mcclellan_like_engines(rose, rose->size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("McClellan-like engine validation failed\n");
+        return HS_INVALID;
+    }
+
     /* Validate LBR NFA repeatInfoOffset. */
     if (unlikely(db_validate_lbr_repeat_info(rose, rose->size) != HS_SUCCESS)) {
         DEBUG_PRINTF("LBR repeat info validation failed\n");
+        return HS_INVALID;
+    }
+
+    /* Validate Castle NFA stream-state layout. */
+    if (unlikely(db_validate_castle_engines(rose, rose->size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("Castle engine validation failed\n");
         return HS_INVALID;
     }
 
