@@ -32,7 +32,7 @@
 #include "ue2common.h"
 #include "cpuid_flags.h"
 
-#if !defined(_WIN32) && !defined(CPUID_H_)
+#if !defined(_MSC_VER) && !defined(CPUID_H_)
 #include <cpuid.h>
 /* system header doesn't have a header guard */
 #define CPUID_H_
@@ -46,7 +46,7 @@ extern "C"
 static inline
 void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
            unsigned int *ebx, unsigned int *ecx, unsigned int *edx) {
-#ifndef _WIN32
+#if !defined(_MSC_VER)
     __cpuid_count(op, leaf, *eax, *ebx, *ecx, *edx);
 #else
     int a[4];
