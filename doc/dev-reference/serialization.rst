@@ -70,11 +70,12 @@ does not support is reported as :c:member:`HS_DB_PLATFORM_ERROR`. A database
 with a bad magic number, an inconsistent length or a truncated buffer is
 reported as :c:member:`HS_INVALID`.
 
-.. note:: :c:func:`hs_serialized_database_size`,
-   :c:func:`hs_serialized_database_info`, :c:func:`hs_database_size` and
-   :c:func:`hs_database_info` only check the header fields (magic, version and
-   length). They do not verify the digests, so a successful return from these
-   functions does not show that the database is intact or authentic.
+.. note:: :c:func:`hs_serialized_database_size` and
+   :c:func:`hs_serialized_database_info` check serialized header fields but do
+   not verify either digest. :c:func:`hs_database_size` and
+   :c:func:`hs_database_info` verify the header digest, but not the bytecode
+   digest. A successful return from any of these functions does not establish
+   that the complete database is intact or authentic.
 
 .. warning:: **The default HMAC key is public.** Unless overridden at build
    time, the key used for these digests is a fixed constant
