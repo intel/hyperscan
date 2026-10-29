@@ -56,10 +56,10 @@ produce output like this::
     $ hsbench -e /tmp/patterns -c /tmp/corpus.db
 
     Signatures:        /tmp/patterns
-    Hyperscan info:    Version: 4.3.1 Features:  AVX2 Mode: STREAM
+    Hyperscan info:    Version: 5.4.2 Features:  AVX2 Mode: STREAM
     Expression count:  200
     Bytecode size:     342,540 bytes
-    Database CRC:      0x6cd6b67c
+    Database HMAC:     08d71903725bc404d4c618dce02777b9076cefbcea77e7fe075f24e92950dc0f
     Stream state size: 252 bytes
     Scratch size:      18,406 bytes
     Compile time:      0.153 seconds

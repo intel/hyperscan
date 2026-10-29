@@ -79,6 +79,10 @@ These can be determined at library compile time, see :ref:`target_arch`.
 Software
 ========
 
+Hyperscan requires the OpenSSL ``libcrypto`` library at runtime, which is
+used for database integrity checking (see :ref:`serialization`). Applications
+linking the static library must also link ``libcrypto`` (``-lcrypto``).
+
 As a software library, Hyperscan doesn't impose any particular runtime
 software requirements, however to build the Hyperscan library we require a
 modern C and C++ compiler -- in particular, Hyperscan requires C99 and C++11
@@ -121,6 +125,7 @@ Dependency                                              Version     Notes
 `Ragel <http://www.colm.net/open-source/ragel/>`_       6.9
 `Python <http://www.python.org/>`_                      2.7
 `Boost <http://boost.org/>`_                            >=1.57      Boost headers required
+`OpenSSL <https://www.openssl.org/>`_                               Required: ``libcrypto`` and development headers, used for database integrity checking
 `Pcap <http://tcpdump.org>`_                            >=0.8       Optional: needed for example code only
 ======================================================= =========== ======================================
 
@@ -181,11 +186,49 @@ Common options for CMake include:
 | FAT_RUNTIME            | Build the :ref:`fat runtime<fat_runtime>`. Default |
 |                        | true on Linux, not available elsewhere.            |
 +------------------------+----------------------------------------------------+
+| CMAKE_C_FLAGS /        | Extra compiler flags. Use these to pass            |
+| CMAKE_CXX_FLAGS        | ``-DHS_DB_HMAC_KEY_OVERRIDE`` to replace the       |
+|                        | built-in database HMAC key (see                    |
+|                        | :ref:`hmac_key_override`).                         |
++------------------------+----------------------------------------------------+
 
 For example, to generate a ``Debug`` build: ::
 
     cd <build-dir>
     cmake -DCMAKE_BUILD_TYPE=Debug <hyperscan-source-path>
+
+.. _hmac_key_override:
+
+HMAC Key Override
+-----------------
+
+Compiled databases are protected with an HMAC-SHA256 integrity check. The
+default key is public (``src/hs_db_hmac_key.h``), so it only detects
+accidental corruption and does not authenticate databases. To use a
+site-specific 32-byte key, define ``HS_DB_HMAC_KEY_OVERRIDE`` as a
+brace-enclosed initializer of exactly 32 bytes. Pass it in **both**
+``CMAKE_C_FLAGS`` and ``CMAKE_CXX_FLAGS``, because the key is used by both C
+and C++ sources: ::
+
+    KEY='{0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f,0x20}'
+    cmake -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_FLAGS="\"-DHS_DB_HMAC_KEY_OVERRIDE=$KEY\"" \
+          -DCMAKE_CXX_FLAGS="\"-DHS_DB_HMAC_KEY_OVERRIDE=$KEY\"" \
+          <hyperscan-source-path>
+
+The inner escaped quotes (``\"``) are required: without them, a build tool that
+runs commands through ``bash`` (for example ``make`` on Fedora/RHEL, where
+``/bin/sh`` is ``bash``) expands the braces and the build fails with
+``"HS_DB_HMAC_KEY_OVERRIDE" redefined``.
+
+* The key above is an example only. Generate a random key from a
+  cryptographically secure source and keep it out of version control.
+* The library that compiles a database and the library (``libhs`` or
+  ``libhs_runtime``) that deserializes it must be built with the same key.
+  Otherwise deserialization fails with :c:member:`HS_INVALID`.
+* The key is embedded in the library binary, so a custom key does not replace
+  application-level authentication of untrusted databases. See
+  :ref:`db_integrity`.
 
 
 
