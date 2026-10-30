@@ -272,4 +272,4 @@ breathe_domain_by_extension = {"h" : "c"}
 # -- Add some customisation -----------------------------------------------
 
 def setup(app):
-    app.add_stylesheet("hyperscan.css") # Custom stylesheet for e.g. :regex:
+    app.add_css_file("hyperscan.css") # Custom stylesheet for e.g. :regex:
